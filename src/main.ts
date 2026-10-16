@@ -83,6 +83,9 @@ import { mapEventFeedback } from './ui/mapEvents'
 import { runShare, sharePreview, trainerShare } from './ui/share'
 import { martButton, shop } from './ui/shop'
 import { catalogueSelect, gachaScreen } from './ui/catalogue'
+import { starterSelect } from './ui/starterSelect'
+import { firebaseText } from './i18n/firebase'
+import { firebaseRankingScreen } from './ui/firebaseRanking'
 import { multiplayerScreen } from './ui/multiplayer'
 import { ownsPokemon } from './game/gacha'
 import { titleButton, titleScreen } from './ui/title'
@@ -244,7 +247,7 @@ const showTitle = (opts: { intro?: boolean; focus?: number } = {}) => {
       pokedex: (focus) => pokedexScreen(ui, input, () => showTitle({ focus }), showPcBox),
       // Closing rebuilds the title, so a sign in's merged save (title badge) shows up.
       account: accountsEnabled ? (focus) => accountScreen(ui, input, () => showTitle({ focus })) : undefined,
-      ranking: rankingEnabled ? (focus) => rankingScreen(ui, input, () => showTitle({ focus }), { difficulty: loadSave().difficulty }) : undefined,
+      ranking: (focus) => firebaseRankingScreen(ui, input, () => showTitle({ focus })),
     }, opts),
   )
 }
@@ -265,14 +268,21 @@ const showPlayGate = () =>
 /** Pokémon select, with the Poké Mart (top right) and the way back to the title (top left). */
 const showMenu = (initial: PlayableId = lastStarter) => {
   endRun()
-  const select = catalogueSelect(ui, input, {
+  const select = starterSelect(ui, input, {
     pick: (id) => setTimeout(() => void startRun(id), 250),
     incubator: () => showIncubator(() => showMenu(select.selected())),
-    gacha: () => showGacha(() => showMenu(select.selected())),
   }, initial)
   const closeMart = martButton(ui, input, () => showShop())
   const closeBack = titleButton(ui, input, () => showTitle())
+  const all = h('button', { class: 'btn all-pokemon-entry', onclick: () => showAllPokemon(select.selected()) }, firebaseText().catalogue)
+  select.el.querySelector('.select-footer')?.append(all, h('p', { class: 'initial-note' }, firebaseText().initial))
   setScreen({ ...select, dispose: () => (closeMart(), closeBack(), select.dispose()) })
+}
+
+const showAllPokemon = (initial: PlayableId = lastStarter) => {
+  const select = catalogueSelect(ui, input, { pick: (id) => void startRun(id), incubator: () => showIncubator(() => showAllPokemon(select.selected())), gacha: () => showGacha(() => showAllPokemon(select.selected())) }, initial)
+  const closeBack = titleButton(ui, input, () => showMenu())
+  setScreen({ ...select, dispose: () => (closeBack(), select.dispose()) })
 }
 
 const showShop = () => setScreen(shop(ui, input, () => showMenu()))
@@ -1026,7 +1036,7 @@ const showSharedProfile = (handle: string) => {
 const promptProfile = () => {
   let asked = false
   onAccountChange((s) => {
-    if (asked || s.kind !== 'signedIn' || s.handle !== null || run || !screen?.el.classList.contains('title-home')) return
+    if (asked || s.kind !== 'signedIn' || s.handle !== null || run || !screen?.el.classList.contains('title-home') || screen.el.classList.contains('hidden')) return
     asked = true
     setScreen(profileEditor(ui, input, () => showTitle()))
   })
@@ -1046,7 +1056,8 @@ const boot = () => {
   promptProfile()
   startAccount()
   // Results that didn't reach the ranking last time (offline) go now, once the account is back.
-  if (accountState().kind === 'signedIn') setTimeout(() => void flushRuns(), 5000)
+  onAccountChange((s) => { if (s.kind === 'signedIn' && s.sync === 'synced') void flushRuns() })
+  window.addEventListener('online', () => { void flushRuns() })
 }
 
 boot()

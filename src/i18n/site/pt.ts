@@ -529,8 +529,7 @@ export const sitePt = {
 
   legal: {
     title: 'Legal, privacidade e créditos | Pokémon Survivors',
-    description:
-      'Pokémon Survivors é um fan game não oficial e gratuito, sem anúncios e sem compras. Licenças (código MIT, sprites CC BY-NC 4.0), privacidade (contas opcionais com perfil público no ranking; como convidado, nada sai do seu aparelho), créditos e contato.',
+    description: "Licenças, créditos e privacidade do PKM Survivors: progresso local, contas Firebase opcionais, salas privadas e ranking público.",
     h1: 'Legal, privacidade e créditos',
     sections: {
       fanGame: 'Fan game não oficial',
@@ -569,22 +568,21 @@ export const sitePt = {
     storage: {
       'ps:save': 'Poké Dollars, melhorias compradas no Poké Mart, a Pokédex do jogo (espécies vistas, quantas você derrotou e quais capturou), os ovos da incubadora (eggs), os Pokémon chocados (hatched), progresso das missões, conquistas, recordes (como Pokémon derrotados e o maior tempo sobrevivido) e o título escolhido.',
       'ps:settings': 'Ajustes: volume da música e dos efeitos, som ligado ou desligado, números de dano e tremor de tela.',
-      'ps:lang': 'Idioma escolhido (português ou inglês).',
+      'ps:lang': 'Idioma escolhido (espanhol, português ou inglês).',
       'ps:muted': 'Só em quem jogou versões antigas: o som desligado de antes dos Ajustes. O jogo apenas lê essa chave, não grava mais.',
       'ps:account': 'Só se você entrar com uma conta: qual conta está conectada neste aparelho (o id dela, seu nome e seu nome de usuário) e a última versão do progresso que ele sincronizou.',
       'ps:runs': 'Só com uma conta: resultados de partidas que ainda não chegaram ao ranking (por exemplo, sem internet). Saem daqui assim que o servidor recebe.',
     },
     account: [
-      'Contas são opcionais e servem para guardar o progresso na nuvem e continuar em outro aparelho. O login é com o Google, feito pelo Clerk (clerk.com), que recebe do Google seu nome, e-mail e foto e usa cookies próprios para manter você conectado. O jogo nunca vê sua senha.',
-      'Com uma conta, uma cópia do ps:save fica no nosso servidor, ligada ao id da sua conta. Ela é enviada quando você entra, quando abre o jogo e no fim de cada partida. No nosso servidor ficam o id da conta, o progresso, as datas de criação e de uso e o que o ranking precisa (abaixo), sem seu e-mail.',
-      'Com uma conta, cada partida também vai para o ranking: o Pokémon, a dificuldade, o tempo sobrevivido, o nível, quantos inimigos você derrotou, se venceu e a versão do jogo, com a hora em que a partida começou e terminou, ligados ao id da sua conta. Partidas de convidado não vão para o ranking. Junto vai o replay da partida (a semente e os comandos que você deu, sem nada pessoal), que o servidor joga de novo para conferir o resultado e apaga depois de conferir.',
-      'Seu perfil é público. Ao entrar, você escolhe um nome de exibição e um nome de usuário único, que vai no link do perfil. Qualquer pessoa, com ou sem conta, pode ver no ranking e no perfil: esses dois nomes, o título equipado, os recordes por dificuldade, o progresso da Pokédex, as partidas recentes e quantos seguidores você tem e quantos segue. Seu e-mail e sua foto nunca aparecem. Quem você segue e quem segue você fica guardado no servidor; o perfil mostra só as contagens.',
-      'Ao sair da conta, o progresso continua neste aparelho. Para apagar a conta, o perfil, as partidas do ranking e o progresso guardado nela, peça pelo contato abaixo.',
+      "As contas opcionais usam e-mail e senha pelo Firebase Authentication, com recuperação de senha. As contas anteriores deste projeto Firebase também funcionam. O e-mail não aparece no ranking.",
+      "O Firestore guarda uma cópia privada do progresso, protegida por regras de propriedade. Esta adaptação usa coleções separadas do jogo anterior.",
+      "O ranking publica nomes de treinadores, Pokémon, modo, equipe, dificuldade, tempo, nível e resultado. As regras conferem propriedade, formato e tempo decorrido; não há verificação independente da simulação no servidor.",
+      "O Firebase Realtime Database gerencia salas e sinalização. O WebRTC transmite os comandos quando existe conexão direta; caso contrário, o Firebase retransmite. Participantes veem os nomes e Pokémon da equipe. A conexão direta pode compartilhar informações de rede entre participantes.",
+      "Ao sair, uma cópia local fica separada por conta. Peça ao responsável pelo repositório para excluir sua conta e os dados na nuvem."
     ],
     privacyAfter: [
-      'Para apagar esses dados, limpe os dados do site nas configurações do navegador.',
-      'Sprites, sons e fontes vêm do próprio site, sem chamadas a serviços de terceiros. O site é hospedado na Vercel, que, como qualquer servidor, pode registrar dados técnicos de acesso (como endereço IP) para operar e proteger o serviço.',
-      'Para saber quantas pessoas visitam o site e jogam, usamos o Vercel Web Analytics e uma instância própria do Umami, num servidor nosso. Eles contam visitas de forma anônima e agregada (página, país, navegador, dispositivo e site de origem) e, no caso do Umami, também o resumo de cada partida (Pokémon inicial, até que minuto e nível você chegou e se venceu), sem cookies e sem identificar ou seguir você entre sites.',
+      "Limpe os dados do site no navegador para apagar as cópias locais.",
+      "O Firebase hospeda esta adaptação e processa os dados necessários às contas e partidas online."
     ],
     contact: [
       'Se você tem direitos sobre algum material usado aqui e quer que ele seja removido ou ajustado, abra uma issue no GitHub. O pedido vai ser atendido rapidamente.',

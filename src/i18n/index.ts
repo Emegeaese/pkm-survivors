@@ -1,10 +1,12 @@
 import { en } from './en'
+import { es } from './es'
 import { pt, type Messages } from './pt'
 
 export type { Messages }
 
 /** Supported languages, in menu order. `name` is always shown in its own language. */
 export const LOCALES = {
+  es: { name: 'Español', short: 'ES', tag: 'es-MX', messages: es },
   pt: { name: 'Português', short: 'PT', tag: 'pt-BR', messages: pt },
   en: { name: 'English', short: 'EN', tag: 'en-US', messages: en },
 } as const satisfies Record<string, { name: string; short: string; tag: string; messages: Messages }>

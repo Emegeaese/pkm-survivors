@@ -36,6 +36,7 @@ import { layout } from '../layout'
 import { clock, pokedex, slugOf } from '../pokedex'
 import { ROUTES } from '../routes'
 import { patternText, traitText, typeBadge } from './pokedex'
+import { guideEs } from './guideEs'
 
 type Section = keyof SiteMessages['guide']['sections']
 
@@ -463,6 +464,7 @@ const SECTIONS: Record<Section, (locale: Locale, m: SiteMessages) => Html> = {
 
 /** `/guia/`: how to play, with every number and table read from the game's data. */
 export const guidePage = (locale: Locale) => {
+  if (locale === 'es') return guideEs()
   const m = SITE_MESSAGES[locale]
   const ids = Object.keys(SECTIONS) as Section[]
   const main = html`<div class="page-head">

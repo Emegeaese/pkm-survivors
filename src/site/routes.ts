@@ -1,6 +1,6 @@
 import type { Locale } from '../i18n'
 
-export const SITE_URL = (import.meta.env?.VITE_SITE_URL || 'http://localhost:8787').replace(/\/$/, '')
+export const SITE_URL = (import.meta.env?.VITE_SITE_URL || 'https://pkm-survivors-emegeaese.web.app').replace(/\/$/, '')
 
 export const REPO_URL = 'https://github.com/Emegeaese/pkm-survivors'
 
@@ -10,11 +10,11 @@ export const REPO_URL = 'https://github.com/Emegeaese/pkm-survivors'
  * These paths are linked from the game's title screen, so keep them stable.
  */
 export const ROUTES = {
-  play: { pt: '/', en: '/en/' },
-  pokedex: { pt: '/pokedex/', en: '/en/pokedex/' },
-  guide: { pt: '/guia/', en: '/en/guide/' },
-  changelog: { pt: '/novidades/', en: '/en/changelog/' },
-  legal: { pt: '/legal/', en: '/en/legal/' },
+  play: { pt: '/', en: '/en/', es: '/es/' },
+  pokedex: { pt: '/pokedex/', en: '/en/pokedex/', es: '/es/pokedex/' },
+  guide: { pt: '/guia/', en: '/en/guide/', es: '/es/guia/' },
+  changelog: { pt: '/novidades/', en: '/en/changelog/', es: '/es/novedades/' },
+  legal: { pt: '/legal/', en: '/en/legal/', es: '/es/legal/' },
 } as const satisfies Record<string, Record<Locale, string>>
 
 export type RouteId = keyof typeof ROUTES
@@ -32,13 +32,14 @@ export const absolute = (path: string) => `${SITE_URL}${path}`
 export const alternates = (id: RouteId) => [
   { hreflang: 'pt-BR', href: absolute(ROUTES[id].pt) },
   { hreflang: 'en', href: absolute(ROUTES[id].en) },
+  { hreflang: 'es-MX', href: absolute(ROUTES[id].es) },
   { hreflang: 'x-default', href: absolute(ROUTES[id].en) },
 ]
 
 /** sitemap.xml with every URL in both languages, each listing its alternates. */
 export const sitemap = () => {
   const urls = ROUTE_IDS.flatMap((id) =>
-    [ROUTES[id].pt, ROUTES[id].en].map((path) =>
+    Object.values(ROUTES[id]).map((path) =>
       [
         '  <url>',
         `    <loc>${absolute(path)}</loc>`,

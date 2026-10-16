@@ -12,6 +12,12 @@ import { render } from '../render/draw'
 import { drawJoystick } from '../render/joystick'
 import { drawPokemon, loadAll, preloadShinies, sprites, streamSpecies } from '../render/sprites'
 import { playSfx, unlockAudio } from '../engine/audio'
+import { accountState, accountUserId } from '../account'
+import { accountScreen } from './account'
+import { createFirebaseRoomConnection, type RoomConnection } from '../network/firebaseRooms'
+import { firebaseText } from '../i18n/firebase'
+import { startTeamRanking, finishTeamRanking } from '../firebaseRanking'
+import { runResult } from '../game/ranking'
 import { t } from '../i18n'
 import { featureText } from '../i18n/features'
 import { h, later } from './dom'
@@ -23,31 +29,31 @@ import { levelUp, type Screen } from './screens'
 type Lobby = { code: string; mode: MatchMode; seed: number; host: string; players: Array<Trainer & { ready: boolean }> }
 const readStorage = (key: string, fallback: string) => { try { return localStorage.getItem(key) ?? fallback } catch { return fallback } }
 const store = (key: string, value: string) => { try { localStorage.setItem(key, value) } catch { /* Session only. */ } }
-const defaultServer = () => import.meta.env.VITE_ROOM_URL || `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.hostname}${import.meta.env.DEV ? ':8787' : location.port ? `:${location.port}` : ''}/rooms`
 
 /** The lobby owns its socket, input handlers, HUD and overlays; leaving tears down all of them. */
 export const multiplayerScreen = (root: HTMLElement, input: Input, ctx: CanvasRenderingContext2D, view: { w: number; h: number }, back: () => void): Screen => {
   const m = featureText(), save = loadSave(), params = new URLSearchParams(location.search)
-  const server = h('input', { value: readStorage('pkm:room-server', defaultServer()), placeholder: 'wss://your-server/rooms', 'aria-label': m.server })
-  const name = h('input', { value: readStorage('pkm:trainer', 'Trainer'), maxlength: 24, 'aria-label': m.name })
+  const f = firebaseText(), account = accountState()
+  const name = h('input', { value: account.kind === 'signedIn' ? account.name : readStorage('pkm:trainer', 'Trainer'), maxlength: 24, 'aria-label': m.name })
   const code = h('input', { value: params.get('room')?.slice(0, 6) ?? '', maxlength: 6, placeholder: m.code, 'aria-label': m.code, autocapitalize: 'characters' })
   const pokemon = h('select', { 'aria-label': m.collection }, ...PLAYABLE_IDS.filter((id) => ownsPokemon(save, id)).sort((a, b) => PLAYABLE[a].line[0].dex - PLAYABLE[b].line[0].dex).map((id) => h('option', { value: id, selected: id === 'charmander' }, PLAYABLE[id].name)))
   const shiny = h('input', { type: 'checkbox' })
   const mode = h('select', { 'aria-label': m.friends }, h('option', { value: 'coop' }, m.coop), h('option', { value: 'versus' }, m.versus))
   const status = h('p', { role: 'status', 'aria-live': 'polite' }), players = h('div', { class: 'room-players' })
   const actions = h('div', { class: 'buttons' }), joinActions = h('div', { class: 'buttons' })
-  const config = h('div', { class: 'room-config' }, h('label', {}, m.name, name), h('label', {}, m.collection, pokemon), h('label', {}, shiny, m.shiny), h('label', {}, m.friends, mode), h('label', {}, m.server, server), h('label', {}, m.code, code))
-  const panel = h('div', { class: 'feature-panel box room-panel' }, h('h1', {}, m.friends), h('p', {}, m.lobbyInfo), config, status, players, joinActions, actions, h('p', {}, m.serverHint))
+  const config = h('div', { class: 'room-config' }, h('label', {}, m.name, name), h('label', {}, m.collection, pokemon), h('label', {}, shiny, m.shiny), h('label', {}, m.friends, mode), h('label', {}, m.code, code))
+  const panel = h('div', { class: 'feature-panel box room-panel' }, h('h1', {}, m.friends), h('p', {}, m.lobbyInfo), config, status, players, joinActions, actions, h('p', {}, f.firebase))
   const el = h('div', { class: 'screen feature-screen room-screen' }, panel)
   root.append(el)
-  let ws: WebSocket | null = null, self = '', lobby: Lobby | null = null, match: Match | null = null, hud: Hud | null = null, overlay: Screen | null = null
+  let ws: RoomConnection | null = null, self = '', lobby: Lobby | null = null, match: Match | null = null, hud: Hud | null = null, overlay: Screen | null = null, authScreen: Screen | null = null
+  let ranking: ReturnType<typeof startTeamRanking> | null = null
   let disposed = false, paid = false, ended = false, victoryShown = false, sequence = 0, sendAt = 0, timeout: ReturnType<typeof setTimeout> | null = null
   let paidCoins = 0, paidSummary: RunSummary | null = null, paidSteps = 0, paidEggs = 0
   let special = false, mega = false, lunge = false
   let overlayKey: unknown = null
   const team = h('div', { class: 'room-team box hidden' }), notice = h('p', { class: 'room-notice hidden', role: 'status' })
   root.append(team, notice)
-  const send = (data: object) => { if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify(data)) }
+  const send = (data: object) => { if (ws?.readyState === 1) ws.send(JSON.stringify(data)) }
   const disconnect = () => { const old = ws; ws = null; old?.close(); if (timeout) clearTimeout(timeout); timeout = null }
   const selected = () => PLAYABLE_IDS.find((id) => id === pokemon.value) ?? 'charmander'
   const refreshShiny = () => { shiny.disabled = !ownsShiny(save, selected()); if (shiny.disabled) shiny.checked = false }
@@ -72,6 +78,13 @@ export const multiplayerScreen = (root: HTMLElement, input: Input, ctx: CanvasRe
       updateSave((s) => ({ ...s, gacha: { ...s.gacha, earned: s.gacha.earned + 1 + (match!.result === self ? 2 : 0) } }))
     }
     paid = true
+    if (ranking && (match.result || (match.mode === 'coop' && match.game.time >= 60))) {
+      const g = selectMember(match, self), result = runResult(g, __GAME_VERSION__)
+      if (match.mode === 'versus') result.outcome = match.result === self ? 'victory' : 'death'
+      if (match.result === 'victory') result.outcome = 'victory'
+      if (!match.result) result.outcome = 'quit'
+      void ranking.then((session) => finishTeamRanking(session, result))
+    }
   }
   const showEnd = (message: string, interrupted = false) => {
     if (ended) return
@@ -90,7 +103,10 @@ export const multiplayerScreen = (root: HTMLElement, input: Input, ctx: CanvasRe
   }
   const command = (kind: string, index?: number) => send({ type: 'command', kind, index })
   const leave = () => { finish(true); disconnect(); later(back) }
-  const showJoin = () => joinActions.replaceChildren(h('button', { class: 'btn', onclick: () => connect('create') }, m.create), h('button', { class: 'btn', onclick: () => connect('join') }, m.join), h('button', { class: 'btn', onclick: leave }, m.back))
+  const showJoin = () => joinActions.replaceChildren(h('button', { class: 'btn', onclick: () => connect('create') }, m.create), h('button', { class: 'btn', onclick: () => connect('join') }, m.join),
+    ...(!accountUserId() ? [h('button', { class: 'btn', onclick: () => {
+      panel.classList.add('hidden'); authScreen = accountScreen(root, input, () => { authScreen = null; panel.classList.remove('hidden'); showJoin() })
+    } }, f.login)] : []), h('button', { class: 'btn', onclick: leave }, m.back))
   const ready = async () => {
     if (!lobby || !ws) return
     const snapshot = lobby, socket = ws
@@ -118,18 +134,16 @@ export const multiplayerScreen = (root: HTMLElement, input: Input, ctx: CanvasRe
   }
   const connect = (kind: 'create' | 'join') => {
     if (ws) return
-    let url: URL
-    try { url = new URL(server.value); if (!['ws:', 'wss:'].includes(url.protocol) || url.username || url.password) throw new Error('url') } catch { status.textContent = m.error; return }
-    if (location.protocol === 'https:' && url.protocol !== 'wss:') { status.textContent = m.error; return }
+    if (!accountUserId()) { status.textContent = f.loginRequired; return }
     if (kind === 'join' && !/^[A-Fa-f0-9]{6}$/.test(code.value.trim())) { status.textContent = m.unavailable; return }
-    store('pkm:room-server', url.toString()); store('pkm:trainer', name.value)
+    store('pkm:trainer', name.value)
     status.textContent = m.connecting
     joinActions.querySelectorAll('button').forEach((b) => { b.disabled = true })
-    try { ws = new WebSocket(url) } catch { fail(); return }
+    try { ws = createFirebaseRoomConnection() } catch { fail(); return }
     const socket = ws
     timeout = setTimeout(() => { if (!lobby) fail() }, 10000)
     ws.onopen = () => send({ type: kind, name: name.value, starter: selected(), shiny: shiny.checked && ownsShiny(save, selected()), mode: mode.value, code: code.value.trim().toUpperCase(), version: `${NETWORK_VERSION}:${__GAME_VERSION__}` })
-    ws.onerror = () => { if (ws === socket) fail() }
+    ws.onerror = (code) => { if (ws === socket) fail(code === 'auth-required' ? f.loginRequired : code.includes('permission') || code.includes('PERMISSION') ? f.rules : f.error) }
     ws.onclose = () => { if (ws === socket && !ended) fail(m.disconnected) }
     ws.onmessage = (event) => {
       if (disposed || ws !== socket) return
@@ -139,6 +153,7 @@ export const multiplayerScreen = (root: HTMLElement, input: Input, ctx: CanvasRe
         else if (msg.type === 'error') fail(m.unavailable)
         else if (msg.type === 'lobby') { lobby = msg; if (timeout) clearTimeout(timeout); showLobby() }
         else if (msg.type === 'start') {
+          ranking = startTeamRanking(msg.mode, msg.players.map((p: Trainer) => p.id), msg.players.map((p: Trainer) => p.name))
           match = createMatch(msg.players, msg.mode, msg.seed)
           panel.classList.add('hidden'); el.classList.add('room-playing'); team.classList.remove('hidden'); notice.classList.remove('hidden')
           hud = createHud(root, () => { special = true }, () => { mega = true }, () => { lunge = true }, () => { if (match?.mode === 'coop') command('pause') })
@@ -225,7 +240,7 @@ export const multiplayerScreen = (root: HTMLElement, input: Input, ctx: CanvasRe
   showJoin()
   const onVisibility = () => { if (document.hidden) send({ type: 'input', move: { x: 0, y: 0 } }) }
   document.addEventListener('visibilitychange', onVisibility)
-  return { el, tick, playing: () => match && !ended ? selectMember(match, self) : null, dispose: () => { disposed = true; finish(true); disconnect(); off(); document.removeEventListener('visibilitychange', onVisibility); overlay?.dispose(); hud?.dispose(); team.remove(); notice.remove(); el.remove() } }
+  return { el, tick, playing: () => match && !ended ? selectMember(match, self) : null, dispose: () => { disposed = true; finish(true); disconnect(); off(); document.removeEventListener('visibilitychange', onVisibility); authScreen?.dispose(); overlay?.dispose(); hud?.dispose(); team.remove(); notice.remove(); el.remove() } }
 }
 
 const canvasScale = (ctx: CanvasRenderingContext2D, view: { w: number }) => ctx.canvas.getBoundingClientRect().width / view.w

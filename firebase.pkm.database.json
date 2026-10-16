@@ -1,0 +1,59 @@
+{
+  "pkm2Rooms": {
+    "$room": {
+      ".read": "auth != null && (!data.exists() || data.child('m').child(auth.uid).exists())",
+      ".write": "auth != null && ((!data.exists() && newData.child('host').val() === auth.uid && newData.child('m').child(auth.uid).exists()) || data.child('host').val() === auth.uid)",
+      ".validate": "newData.hasChildren(['host','mode','seed','version','phase','createdAt','m','seats']) && newData.child('host').isString() && newData.child('seed').isNumber() && newData.child('createdAt').isNumber() && newData.child('version').isString() && newData.child('version').val().length <= 60 && (newData.child('mode').val() === 'coop' || newData.child('mode').val() === 'versus') && (newData.child('phase').val() === 'lobby' || newData.child('phase').val() === 'playing' || newData.child('phase').val() === 'ended')",
+      "host": {
+        ".validate": "!data.exists() || newData.val() === data.val()"
+      },
+      "info": {
+        ".read": "auth != null"
+      },
+      "m": {
+        "$uid": {
+          ".write": "auth != null && auth.uid === $uid && (!newData.exists() || root.child('pkm2Rooms').child($room).child('phase').val() === 'lobby')",
+          ".validate": "newData.hasChildren(['id','name','starter','shiny','ready','slot']) && newData.child('id').val() === $uid && newData.child('name').isString() && newData.child('name').val().length <= 24 && newData.child('starter').isString() && newData.child('starter').val().length <= 40 && newData.child('ready').isBoolean() && newData.child('shiny').isBoolean() && newData.child('slot').isNumber() && newData.parent().parent().child('seats').child(newData.child('slot').val() + '').val() === $uid"
+        }
+      },
+      "seats": {
+        "0": {
+          ".read": "auth != null",
+          ".write": "auth != null && ((data.val() === auth.uid && !newData.exists()) || (root.child('pkm2Rooms').child($room).child('phase').val() === 'lobby' && ((!data.exists() && newData.val() === auth.uid) || data.val() === auth.uid)))",
+          ".validate": "newData.isString() && newData.val().length <= 128"
+        },
+        "1": {
+          ".read": "auth != null",
+          ".write": "auth != null && ((data.val() === auth.uid && !newData.exists()) || (root.child('pkm2Rooms').child($room).child('phase').val() === 'lobby' && ((!data.exists() && newData.val() === auth.uid) || data.val() === auth.uid)))",
+          ".validate": "newData.isString() && newData.val().length <= 128"
+        },
+        "2": {
+          ".read": "auth != null",
+          ".write": "auth != null && ((data.val() === auth.uid && !newData.exists()) || (root.child('pkm2Rooms').child($room).child('phase').val() === 'lobby' && ((!data.exists() && newData.val() === auth.uid) || data.val() === auth.uid)))",
+          ".validate": "newData.isString() && newData.val().length <= 128"
+        },
+        "3": {
+          ".read": "auth != null",
+          ".write": "auth != null && ((data.val() === auth.uid && !newData.exists()) || (root.child('pkm2Rooms').child($room).child('phase').val() === 'lobby' && ((!data.exists() && newData.val() === auth.uid) || data.val() === auth.uid)))",
+          ".validate": "newData.isString() && newData.val().length <= 128"
+        },
+        "$other": {
+          ".validate": false
+        }
+      }
+    }
+  },
+  "pkm2Signals": {
+    "$room": {
+      "$to": {
+        ".read": "auth != null && auth.uid === $to && root.child('pkm2Rooms').child($room).child('m').child(auth.uid).exists()",
+        "$from": {
+          "$msg": {
+            ".write": "auth != null && ((auth.uid === $to && !newData.exists()) || (auth.uid === $from && root.child('pkm2Rooms').child($room).child('m').child(auth.uid).exists() && root.child('pkm2Rooms').child($room).child('m').child($to).exists()))",
+            ".validate": "newData.isString() && newData.val().length <= 200000"
+          }
+        }
+      }
+    }
+  }
+}

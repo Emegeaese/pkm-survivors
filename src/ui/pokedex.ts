@@ -9,9 +9,10 @@ import { locale, t, type Locale } from '../i18n'
 import { h, later } from './dom'
 import { loadSave } from './save'
 import { hint, typeBadge, type Screen } from './screens'
+import { playableFormOf, pokemonStats } from './pokemonStats'
 
 /** The static Pokédex page, now a secondary link: it lists where each species shows up. */
-const SITE_POKEDEX = { pt: '/pokedex/', en: '/en/pokedex/' } as const satisfies Record<Locale, string>
+const SITE_POKEDEX = { pt: '/pokedex/', en: '/en/pokedex/', es: '/es/pokedex/' } as const satisfies Record<Locale, string>
 
 const DEX_FILTERS = ['all', 'seen', 'caught', 'missing'] as const
 
@@ -131,6 +132,8 @@ export const pokedexScreen = (root: HTMLElement, input: Input, onClose: () => vo
       s.shiny && h('span', { class: 'tag tag-shiny' }, h('img', { src: sparkleIcon(), alt: '' }), m.shiny),
     ]
     facts.replaceChildren(...lines.filter((line) => line !== false))
+    const form = playableFormOf(e.dex)
+    if (form) facts.append(pokemonStats(form.id, form.stage))
   }
 
   const syncFocus = () => {

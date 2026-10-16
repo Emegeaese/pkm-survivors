@@ -7,10 +7,11 @@ describe('site pages', () => {
   it('render with their own canonical and hreflang links to both languages', () => {
     for (const page of SITE_PAGES) {
       const doc = page.render()
-      const id = ROUTE_IDS.find((r) => ROUTES[r].pt === page.path || ROUTES[r].en === page.path)!
+      const id = ROUTE_IDS.find((r) => Object.values(ROUTES[r]).includes(page.path as never))!
       expect(doc).toContain(`<link rel="canonical" href="${absolute(page.path)}" />`)
       expect(doc).toContain(`hreflang="pt-BR" href="${absolute(ROUTES[id].pt)}"`)
       expect(doc).toContain(`hreflang="en" href="${absolute(ROUTES[id].en)}"`)
+      expect(doc).toContain(`hreflang="es-MX" href="${absolute(ROUTES[id].es)}"`)
       expect(doc.match(/<h1>/g)).toHaveLength(1)
     }
   })

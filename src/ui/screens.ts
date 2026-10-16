@@ -30,7 +30,7 @@ export type Screen = {
   dim?: number
 }
 
-export const typeBadge = (type: PokeType) => h('span', { class: 'type-badge', style: `--type:${TYPE_COLORS[type]}` }, type.toUpperCase())
+export const typeBadge = (type: PokeType) => h('span', { class: 'type-badge', style: `--type:${TYPE_COLORS[type]}` }, t().types[type].toUpperCase())
 
 /** The level a run is played on, as a colored chip (pause menu, results). */
 export const difficultyTag = (d: Difficulty) => h('span', { class: `difficulty-tag ${d}` }, t().difficulty.names[d])

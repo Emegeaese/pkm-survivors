@@ -75,14 +75,14 @@ export default defineConfig(({ mode }) => ({
   plugins: [sitePages(), {
     name: 'fork-site-identity',
     transformIndexHtml(html) {
-      const origin = (loadEnv(mode, process.cwd(), 'VITE_').VITE_SITE_URL || 'http://localhost:8787').replace(/\/$/, '')
+      const origin = (loadEnv(mode, process.cwd(), 'VITE_').VITE_SITE_URL || 'https://pkm-survivors-emegeaese.web.app').replace(/\/$/, '')
       return html.replaceAll('https://www.pokemonsurvivors.com', origin)
     },
   }],
   define: { __GAME_VERSION__: JSON.stringify(gameVersion()) },
   build: {
     rolldownOptions: {
-      input: { main: 'index.html', en: 'en/index.html' },
+      input: { main: 'index.html', en: 'en/index.html', es: 'es/index.html' },
     },
   },
 }))

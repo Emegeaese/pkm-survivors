@@ -2,14 +2,15 @@ import { describe, expect, it } from 'vitest'
 import { createRng } from '../engine/rng'
 import { EXTRA_PLAYABLE, PLAYABLE, PLAYABLE_IDS } from '../data/hatchlings'
 import { CATALOGUE_IDS } from '../data/catalogue-ids'
+import { STARTER_IDS } from '../data/starters'
 import { bannerPool, bannerRarity, bundleTickets, mergeGacha, ownsPokemon, parseGacha, pullGacha, runTickets, tickets } from './gacha'
 import { EMPTY_SAVE, parseSave } from './meta'
 import { mergeSaves } from './sync'
 import { createGame } from './game'
 
 describe('ticket gacha and catalogue', () => {
-  it('keeps 3 starters free and all shipped species playable after unlocking', () => {
-    expect(PLAYABLE_IDS.filter((id) => ownsPokemon(EMPTY_SAVE, id))).toEqual(['bulbasaur', 'charmander', 'squirtle'])
+  it('keeps all 27 starters free and all shipped species playable after unlocking', () => {
+    expect(PLAYABLE_IDS.filter((id) => ownsPokemon(EMPTY_SAVE, id))).toEqual(STARTER_IDS)
     expect([...CATALOGUE_IDS].sort()).toEqual(Object.keys(EXTRA_PLAYABLE).sort())
     for (const id of PLAYABLE_IDS) {
       const g = createGame(id, { w: 480, h: 270 }, 1)

@@ -509,8 +509,7 @@ export const siteEn: SiteMessages = {
 
   legal: {
     title: 'Legal, privacy and credits | Pokémon Survivors',
-    description:
-      'Pokémon Survivors is an unofficial, free fan game with no ads and no purchases. Licenses (MIT code, CC BY-NC 4.0 sprites), privacy (optional accounts with a public ranking profile; as a guest, nothing leaves your device), credits and contact.',
+    description: "Licenses, credits and privacy for PKM Survivors: local progress, optional Firebase accounts, private rooms and public scores.",
     h1: 'Legal, privacy and credits',
     sections: {
       fanGame: 'Unofficial fan game',
@@ -549,22 +548,21 @@ export const siteEn: SiteMessages = {
     storage: {
       'ps:save': 'Poké Dollars, the upgrades bought in the Poké Mart, the in-game Pokédex (species seen, how many you defeated and which you caught), the eggs in the incubator (eggs), the Pokémon hatched (hatched), mission progress, achievements, records (like Pokémon defeated and your longest survival) and the title you picked.',
       'ps:settings': 'Settings: music and effects volume, sound on or off, damage numbers and screen shake.',
-      'ps:lang': 'Your language (Portuguese or English).',
+      'ps:lang': 'Your language (Spanish, Portuguese or English).',
       'ps:muted': 'Only if you played an older version: the mute flag from before Settings existed. The game only reads it and no longer writes it.',
       'ps:account': 'Only if you sign in: which account is signed in on this device (its id, your name and your username) and the last version of your progress it synced.',
       'ps:runs': 'Only with an account: run results that have not reached the ranking yet (for example, while offline). They leave as soon as the server gets them.',
     },
     account: [
-      'Accounts are optional and keep your progress in the cloud so you can continue on another device. Sign-in is with Google, handled by Clerk (clerk.com), which gets your name, email and picture from Google and uses its own cookies to keep you signed in. The game never sees your password.',
-      'With an account, a copy of ps:save is kept on our server, tied to your account id. It is sent when you sign in, when you open the game and at the end of every run. Our server keeps the account id, your progress, when it was created and last used and what the ranking needs (below), not your email.',
-      'With an account, every run also goes to the ranking: the Pokémon, the difficulty, the time survived, the level, how many enemies you defeated, whether you won and the game version, with when the run started and ended, tied to your account id. Guest runs never reach the ranking. The replay of the run goes along (its seed and the inputs you gave, nothing personal), which the server plays again to check the result and deletes once checked.',
-      'Your profile is public. When you sign in you pick a display name and a unique username, which goes in your profile link. Anyone, with or without an account, can see on the ranking and on your profile: those two names, your equipped title, your records per difficulty, your Pokédex progress, your recent runs and how many followers you have and how many you follow. Your email and picture never show. Who you follow and who follows you is kept on the server; the profile only shows the counts.',
-      'Signing out keeps your progress on this device. To delete your account, your profile, your ranked runs and the progress kept in it, ask through the contact below.',
+      "Optional accounts use email and password through Firebase Authentication, with password recovery. Existing accounts in this Firebase project also work. Email is not published on leaderboards.",
+      "Firestore stores a private copy of game progress, protected by account ownership rules. This adaptation uses separate collections from the previous game.",
+      "Public scores include trainer names, Pokémon, mode, team, difficulty, survival time, level and result. Rules check ownership, format and elapsed time; there is no independent server replay verification.",
+      "Firebase Realtime Database manages room membership and signaling. WebRTC carries game inputs when a direct connection is possible; otherwise Firebase relays them. Room participants see each other’s trainer names and Pokémon. Direct connections can share network information between participants.",
+      "Signing out keeps a local copy separated by account. Contact the repository maintainer to request deletion of your account and cloud data."
     ],
     privacyAfter: [
-      'To delete this data, clear the site data in your browser settings.',
-      'Sprites, sounds and fonts are served by this site, with no calls to third-party services. The site is hosted on Vercel which, like any web server, may log technical access data (such as IP addresses) to run and protect the service.',
-      'To know how many people visit and play, the site uses Vercel Web Analytics and its own Umami instance, on our own server. They count visits anonymously and in aggregate (page, country, browser, device and referring site) and, in Umami\'s case, a summary of each run (starter Pokémon, the minute and level you reached and whether you won), with no cookies and without identifying you or following you across sites.',
+      "Clear site data in your browser to remove local copies.",
+      "Firebase hosts this adaptation and processes the account and online-play data needed to provide the service."
     ],
     contact: [
       'If you hold rights to any material used here and want it removed or changed, open an issue on GitHub. It will be addressed promptly.',

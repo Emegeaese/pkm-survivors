@@ -11,6 +11,8 @@ import type { RunSummary } from '../game/tally'
 import { DAMAGE_NUMBERS, type DamageNumbers } from '../render/damageNumbers'
 
 const KEY = 'ps:save'
+const saveListeners = new Set<() => void>()
+export const onSaveChange = (fn: () => void) => { saveListeners.add(fn); return () => { saveListeners.delete(fn) } }
 
 /** Reads the meta save. Storage errors (private mode, quota) fall back to an empty save. */
 export const loadSave = (): Save => {
@@ -23,7 +25,10 @@ export const loadSave = (): Save => {
 
 export const writeSave = (save: Save) => {
   try {
-    localStorage.setItem(KEY, JSON.stringify(save))
+    const serialized = JSON.stringify(save)
+    if (localStorage.getItem(KEY) === serialized) return
+    localStorage.setItem(KEY, serialized)
+    for (const fn of saveListeners) fn()
   } catch {
     // Storage full or blocked: progress just won't persist this session.
   }

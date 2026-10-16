@@ -12,6 +12,7 @@ import { portraitUrl } from '../render/sprites'
 import { h, later } from './dom'
 import { loadSave, updateSave, writeSave } from './save'
 import type { Screen } from './screens'
+import { pokemonStats } from './pokemonStats'
 
 export const catalogueSelect = (root: HTMLElement, input: Input, actions: { pick: (id: PlayableId) => void; incubator: () => void; gacha: () => void }, initial: PlayableId = 'charmander'): Screen & { selected: () => PlayableId } => {
   const m = featureText()
@@ -34,7 +35,7 @@ export const catalogueSelect = (root: HTMLElement, input: Input, actions: { pick
       showDetail()
     } }, loadSave().shinyStarters[selected] ? m.shiny : m.normal) : null
     detail.replaceChildren(h('img', { class: 'collection-portrait', src: portraitUrl(dex, loadSave().shinyStarters[selected] === true), alt: p.name }), h('h2', {}, `#${dex} ${p.name}`),
-      h('p', {}, p.line.map((s) => s.name).join(' → ')), h('p', {}, p.line[0].types.join(' / ')),
+      h('p', {}, p.line.map((s) => s.name).join(' → ')), h('p', {}, p.line[0].types.map((type) => t().types[type]).join(' / ')), pokemonStats(selected),
       h('p', {}, p.learnset.map((id) => MOVES[id].name).join(' · ')), h('p', {}, resolveSpecial(selected, 0).tier.name), ...(toggle ? [toggle] : []),
       h('button', { class: 'btn', onclick: () => canPlay ? confirm() : later(actions.gacha) }, canPlay ? m.play : m.locked))
   }

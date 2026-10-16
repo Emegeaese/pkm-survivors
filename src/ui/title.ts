@@ -21,6 +21,7 @@ import { featureText } from '../i18n/features'
 const SITE_PAGES = {
   pt: { guide: '/guia/', legal: '/legal/' },
   en: { guide: '/en/guide/', legal: '/en/legal/' },
+  es: { guide: '/es/guia/', legal: '/es/legal/' },
 } as const satisfies Record<Locale, Record<string, string>>
 
 const GITHUB_URL = 'https://github.com/Emegeaese/pkm-survivors'

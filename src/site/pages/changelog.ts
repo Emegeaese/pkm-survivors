@@ -29,8 +29,8 @@ export const changelogPage = (locale: Locale) => {
       <h2><time datetime="${group.date}">${longDate(group.date)}</time></h2>
       ${group.entries.map(
         (e) => html`<article class="box doc-section">
-        <h3>${e.title[locale]}${e.pr !== undefined && html` <a class="pr" href="${REPO_URL}/pull/${e.pr}">${m.changelog.pr(e.pr)}</a>`}</h3>
-        <ul>${e.notes.map((note) => html`<li>${note[locale]}</li>`)}</ul>
+        <h3>${e.title[locale] ?? e.title.en}${e.pr !== undefined && html` <a class="pr" href="${REPO_URL}/pull/${e.pr}">${m.changelog.pr(e.pr)}</a>`}</h3>
+        <ul>${e.notes.map((note) => html`<li>${note[locale] ?? note.en}</li>`)}</ul>
       </article>`,
       )}
     </section>`,

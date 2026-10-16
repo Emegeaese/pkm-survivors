@@ -1,7 +1,7 @@
 import type { Locale } from '../i18n'
 
 /** The same text in every language: the type makes a missing translation a compile error. */
-type Bilingual = Readonly<Record<Locale, string>>
+type Bilingual = Readonly<Record<Exclude<Locale, 'es'>, string> & { es?: string }>
 
 export type ChangelogEntry = {
   /** ISO date (`YYYY-MM-DD`) the change went live. */
@@ -34,6 +34,15 @@ export const CHANGELOG: readonly ChangelogEntry[] = [
         pt: 'Fitas: depois que o dia fecha, todo mundo no ranking do desafio ganha uma fita como Presente Misterioso, de ouro para os 10% melhores, de prata para a metade de cima e de bronze para quem participou. Elas aparecem no seu perfil e no Cartão de Treinador.',
         en: 'Ribbons: once the day closes, everyone on the challenge ranking gets a ribbon as a Mystery Gift, gold for the top 10%, silver for the top half and bronze for taking part. They show on your profile and Trainer Card.',
       },
+    ],
+  },
+  {
+    date: '2026-10-15',
+    title: { es: 'Español, Firebase y clasificaciones de equipo', en: 'Spanish, Firebase and team rankings', pt: 'Espanhol, Firebase e ranking de equipes' },
+    notes: [
+      { es: 'Cuentas con correo y contraseña, guardados privados y salas cooperativas y versus para 2–4 jugadores mediante Firebase.', en: 'Email/password accounts, private cloud saves and cooperative/versus Firebase rooms for 2–4 players.', pt: 'Contas com e-mail e senha, progresso privado e salas cooperativas e versus por Firebase para 2–4 jogadores.' },
+      { es: 'Clasificaciones de solitario, cooperativo por tamaño de equipo y victorias versus, con períodos diario, semanal e histórico.', en: 'Solo time, cooperative team-size and versus-win leaderboards for today, week and all time.', pt: 'Ranking solo, cooperativo por tamanho de equipe e vitórias versus: diário, semanal e histórico.' },
+      { es: 'Vuelve la selección original con estadísticas, evoluciones, los 27 iniciales disponibles y acceso a huevos. El catálogo completo conserva los desbloqueos del gacha.', en: 'Restored detailed starter selection, all 27 starters, eggs and the full ticket-gacha catalogue.', pt: 'Seleção original detalhada restaurada, 27 iniciais, ovos e catálogo completo do gacha.' },
     ],
   },
   {

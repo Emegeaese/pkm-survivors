@@ -1,0 +1,104 @@
+    // PKM Survivors v2: separate collections; original game data is untouched.
+    function pkmOwner(uid) { return request.auth != null && request.auth.uid == uid; }
+    function pkmRun(d) {
+      return request.auth != null && d.uid == request.auth.uid
+        && d.team is list && d.team.size() >= 1 && d.team.size() <= 4 && request.auth.uid in d.team
+        && d.names is list && d.names.size() == d.team.size()
+        && d.name is string && d.name.size() <= 110 && d.handle is string && d.handle.size() <= 24
+        && d.starter is string && d.starter.size() <= 40 && d.stage is int && d.stage >= 0 && d.stage <= 2
+        && d.difficulty in ['normal', 'hard', 'nightmare'] && d.outcome in ['victory', 'death', 'quit']
+        && d.time is number && d.time >= 0 && d.time <= 14400
+        && d.level is int && d.level >= 1 && d.level <= 999
+        && d.kills is int && d.kills >= 0 && d.kills <= d.time * 40 + 1
+        && d.version is string && d.version.size() <= 40 && d.at is string && d.at.size() <= 40
+        && d.verified == false && d.runId is string;
+    }
+    function pkmStarted(d) {
+      let start = get(/databases/$(database)/documents/pkmStarts/$(d.runId)).data;
+      return start.uid == request.auth.uid && start.team == d.team
+        && start.startedAt + duration.value(int(d.time) - 30, 's') <= request.time
+        && (start.mode == 'versus' || d.outcome != 'victory' || d.time >= 900);
+    }
+    function pkmBoard(board, entry, d) {
+      let start = get(/databases/$(database)/documents/pkmStarts/$(d.runId)).data;
+      return ((board.matches('^' + start.mode + '_' + d.difficulty + '_' + (start.mode == 'coop' ? string(start.teamSize) : '1') + '_(day|week|all)_[0-9a-z-]+$')
+          && entry == (start.mode == 'coop' ? start.teamId : d.uid)
+          && (start.mode == 'versus'
+            ? d.score == d.wins && d.wins is int && d.wins == (resource == null ? 0 : resource.data.wins) +
+              (!exists(/databases/$(database)/documents/pkmRuns/$(d.runId)) && d.outcome == 'victory' ? 1 : 0)
+            : d.score == d.time && d.wins == 0))
+        || (start.mode == 'solo' && start.challenge is string && board == 'challenge_' + start.challenge
+          && entry == d.uid && d.score == d.time && d.wins == 0 && (resource == null || resource.data.runId == d.runId)))
+        && (resource == null || (resource.data.team == d.team && d.score >= resource.data.score));
+    }
+    match /pkmSaves/{uid} {
+      allow read: if pkmOwner(uid);
+      allow create, update: if pkmOwner(uid)
+        && request.resource.data.keys().hasOnly(['save', 'revision', 'updatedAt'])
+        && request.resource.data.save is map && request.resource.data.revision is int
+        && request.resource.data.revision == (resource == null ? 1 : resource.data.revision + 1)
+        && request.resource.data.updatedAt == request.time;
+    }
+    match /pkmProfiles/{uid} {
+      allow read: if true;
+      allow create, update: if pkmOwner(uid)
+        && request.resource.data.keys().hasOnly(['uid', 'name', 'handle', 'updatedAt'])
+        && request.resource.data.uid == uid
+        && request.resource.data.name is string && request.resource.data.name.size() >= 1 && request.resource.data.name.size() <= 24
+        && request.resource.data.handle.matches('^[a-z0-9_]{3,20}$')
+        && request.resource.data.updatedAt == request.time
+        && getAfter(/databases/$(database)/documents/pkmHandles/$(request.resource.data.handle)).data.uid == uid;
+    }
+    match /pkmHandles/{handle} {
+      allow read: if true;
+      allow create: if request.auth != null && request.resource.data.keys().hasOnly(['uid'])
+        && request.resource.data.uid == request.auth.uid && handle.matches('^[a-z0-9_]{3,20}$');
+      allow update: if request.auth != null && resource.data.uid == request.auth.uid && request.resource.data == resource.data;
+      allow delete: if request.auth != null && resource.data.uid == request.auth.uid;
+    }
+    match /pkmStats/{uid} {
+      allow read: if true;
+      allow create, update: if pkmOwner(uid) && request.resource.data.keys().hasOnly(['seen', 'caught'])
+        && request.resource.data.seen is int && request.resource.data.caught is int
+        && request.resource.data.seen >= 0 && request.resource.data.seen <= 2000
+        && request.resource.data.caught >= 0 && request.resource.data.caught <= 2000;
+    }
+    match /pkmStarts/{id} {
+      allow read: if request.auth != null && resource.data.uid == request.auth.uid;
+      allow create: if request.auth != null && request.resource.data.uid == request.auth.uid
+        && request.resource.data.keys().hasOnly(['id', 'uid', 'mode', 'team', 'names', 'teamSize', 'teamId', 'challenge', 'startedAt'])
+        && request.resource.data.id == id && request.resource.data.mode in ['solo', 'coop', 'versus']
+        && request.resource.data.team is list && request.resource.data.team.size() >= 1 && request.resource.data.team.size() <= 4
+        && request.resource.data.teamSize == request.resource.data.team.size()
+        && request.resource.data.teamId is string && request.resource.data.teamId.size() <= 520
+        && ((request.resource.data.mode == 'solo' && request.resource.data.teamSize == 1) || (request.resource.data.mode != 'solo' && request.resource.data.teamSize >= 2))
+        && request.auth.uid in request.resource.data.team
+        && request.resource.data.names is list && request.resource.data.names.size() == request.resource.data.team.size()
+        && request.resource.data.startedAt == request.time;
+    }
+    match /pkmRuns/{id} {
+      allow read: if true;
+      allow create, update: if pkmRun(request.resource.data) && pkmStarted(request.resource.data)
+        && request.resource.data.runId == id && request.resource.data.startId == id
+        && request.resource.data.mode == get(/databases/$(database)/documents/pkmStarts/$(id)).data.mode
+        && request.resource.data.updatedAt == request.time
+        && (resource == null || (resource.data.uid == request.auth.uid && request.resource.data.time > resource.data.time));
+    }
+    match /pkmBoards/{board}/entries/{entry} {
+      allow read: if true;
+      allow create, update: if pkmRun(request.resource.data) && pkmStarted(request.resource.data)
+        && getAfter(/databases/$(database)/documents/pkmRuns/$(request.resource.data.runId)).data.time == request.resource.data.time
+        && getAfter(/databases/$(database)/documents/pkmRuns/$(request.resource.data.runId)).data.uid == request.auth.uid
+        && pkmBoard(board, entry, request.resource.data);
+    }
+    match /pkmFollows/{uid}/targets/{handle} {
+      allow read: if true;
+      allow delete: if pkmOwner(uid);
+      allow create, update: if pkmOwner(uid) && request.resource.data.keys().hasOnly(['handle']) && request.resource.data.handle == handle;
+    }
+    match /pkmFans/{handle}/uids/{uid} {
+      allow read: if true;
+      allow delete: if pkmOwner(uid);
+      allow create, update: if pkmOwner(uid) && request.resource.data.keys().hasOnly(['uid']) && request.resource.data.uid == uid
+        && getAfter(/databases/$(database)/documents/pkmFollows/$(uid)/targets/$(handle)).data.handle == handle;
+    }

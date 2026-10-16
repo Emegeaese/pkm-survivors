@@ -7,11 +7,13 @@ import { isRecord, wholeNumber } from './parse'
 import type { Save } from './meta'
 import type { RunSummary } from './tally'
 import { markHatch } from './dex'
+import { STARTER_IDS } from '../data/starters'
 
-export const STARTING_POKEMON: readonly PlayableId[] = ['bulbasaur', 'charmander', 'squirtle']
+export const STARTING_POKEMON: readonly PlayableId[] = STARTER_IDS
 export const BANNERS = ['Kanto', 'Johto', 'Hoenn', 'Sinnoh', 'Unova', 'Kalos', 'Alola', 'Galar', 'Paldea'] as const
 export const RATES = [[1, 45], [2, 30], [3, 17], [4, 6.5], [5, 1.5]] as const
 export const PITY = 70
+export const SHINY_CHANCE = 0.01
 export type Rarity = 1 | 2 | 3 | 4 | 5
 export type Gacha = {
   earned: number; used: number; bundles: number; bundlesUsed: number
@@ -76,7 +78,7 @@ export const pullGacha = (save: Save, count: 1 | 10, gen: number, rng: Rng, bund
     const available = RATES.filter(([r]) => r >= min && pool.some((id) => bannerRarity(id, gen) === r))
     const rarity = weightedPick(rng, available)
     const id = pick(rng, pool.filter((id) => bannerRarity(id, gen) === rarity))
-    const shiny = hasShinySprite(PLAYABLE[id].line[0].dex) && chance(rng, 0.01)
+    const shiny = hasShinySprite(PLAYABLE[id].line[0].dex) && chance(rng, SHINY_CHANCE)
     const fresh = shiny ? !ownsShiny({ ...save, gacha: g }, id) : !ownsPokemon({ ...save, gacha: g }, id)
     const refund = fresh ? 0 : [0, 15, 30, 60, 120, 300][rarity]! * (shiny ? 3 : 1)
     g.owned[id] = (g.owned[id] ?? 0) + 1

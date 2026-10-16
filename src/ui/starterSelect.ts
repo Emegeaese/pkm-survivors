@@ -5,7 +5,8 @@ import { HATCHLING_IDS, HATCHLINGS, isHatchling, PLAYABLE, type HatchlingId, typ
 import { REGIONS, type PlayableDef, type Region } from '../data/starters'
 import { TYPE_COLORS } from '../data/types'
 import { DIFFICULTY_IDS, type Difficulty } from '../game/difficulty'
-import { EGGS, isReady, isUnlocked } from '../game/eggs'
+import { EGGS, isReady } from '../game/eggs'
+import { ownsPokemon } from '../game/gacha'
 import { armItem, BAG_ITEM_IDS, BAG_ITEMS, bagCount, type Bag, type BagItem } from '../game/bag'
 import { pickShinyStarter, type ShinyStarters } from '../game/shinyStarters'
 import { starterStats } from '../game/leveling'
@@ -289,7 +290,7 @@ type SelectActions = { pick: (id: PlayableId) => void; incubator: () => void }
 export const starterSelect = (root: HTMLElement, input: Input, actions: SelectActions, initial: PlayableId = 'charmander'): Screen & { selected: () => PlayableId } => {
   const m = t()
   const save = loadSave()
-  const unlocked = (id: PlayableId) => isUnlocked(save.hatched, id)
+  const unlocked = (id: PlayableId) => ownsPokemon(save, id)
   /** A shiny hatch is shiny for good; a shiny rolled once can be picked (`shinyStarters`). */
   const hatchedShiny = (id: PlayableId) => isHatchling(id) && save.hatched[id]?.shiny === true
   let picks: ShinyStarters = save.shinyStarters
@@ -304,7 +305,7 @@ export const starterSelect = (root: HTMLElement, input: Input, actions: SelectAc
   const group = () => GROUPS[cursor.group]!
   const current = (): PlayableId => group().ids[cursor.slot]!
 
-  const owned = HATCHLING_IDS.filter((id) => save.hatched[id]).length
+  const owned = HATCHLING_IDS.filter((id) => ownsPokemon(save, id)).length
   const tabs = GROUPS.map((g, i) =>
     h(
       'button',

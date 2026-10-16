@@ -68,7 +68,6 @@ const head = ({ id, locale, title, description, schema = [], css }: PageMeta) =>
     ${css && html`<style>${raw(css)}</style>`}
     <script type="application/ld+json">${jsonLd({ '@context': 'https://schema.org', '@graph': graph })}</script>
     <script type="module" src="/src/site/client.ts"></script>
-    <script defer vite-ignore src="/_vercel/insights/script.js"></script>
   </head>`
 }
 
@@ -84,6 +83,7 @@ const header = (id: PageId, locale: Locale) => {
       )}
     </nav>
     <nav class="lang" aria-label="${m.nav.language}">
+      <a href="${ROUTES[id].es}" hreflang="es-MX" lang="es" data-lang="es"${locale === 'es' ? html` aria-current="true"` : ''}>ES</a>
       <a href="${ROUTES[id].pt}" hreflang="pt-BR" lang="pt-BR" data-lang="pt"${locale === 'pt' ? html` aria-current="true"` : ''}>PT</a>
       <a href="${ROUTES[id].en}" hreflang="en" lang="en" data-lang="en" title="${SITE_MESSAGES[to].lang.switchTo}"${locale === 'en' ? html` aria-current="true"` : ''}>EN</a>
     </nav>

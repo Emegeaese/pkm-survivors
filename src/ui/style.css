@@ -5389,6 +5389,17 @@ a.btn.dex-site {
   }
 }
 /* Collection, ticket gacha and private room screens. */
+.initial-note { max-width: 480px; margin: 0; line-height: 1.4; font-size: 17px; text-align: center; }
+.pokemon-stats { width: 100%; flex-basis: 100%; }
+.pokemon-stats .bar-base { background: var(--accent, #7895ff); }
+.firebase-account form { display: grid; gap: 12px; width: 100%; }
+.firebase-account label { display: grid; gap: 4px; text-align: left; }
+.firebase-account input { width: 100%; min-width: 0; padding: 10px; border: 2px solid #7182a8; border-radius: 4px; color: var(--ink); background: #fff; font: inherit; }
+.firebase-account .buttons { flex-wrap: wrap; }
+.firebase-rank-list { display: grid; gap: 6px; overflow-x: auto; }
+.firebase-rank-list .rank-row { display: grid; grid-template-columns: 40px 40px minmax(80px,1fr) auto; gap: 8px; align-items: center; padding: 10px; }
+.firebase-rank-list .rank-row img { width: 40px; height: 40px; image-rendering: pixelated; }
+.firebase-rank-list small { display: block; }
 .feature-screen { overflow: auto; padding: 24px 12px; align-items: flex-start; }
 .feature-panel { width: min(1100px, 96vw); padding: 22px; margin: auto; display: flex; flex-direction: column; gap: 14px; max-height: none; }
 .feature-panel h1 { font-size: clamp(14px, 3vw, 24px); line-height: 1.8; }
