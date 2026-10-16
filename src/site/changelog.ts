@@ -19,6 +19,24 @@ export type ChangelogEntry = {
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
     date: '2026-10-16',
+    title: { pt: 'Perfil renovado, amigos com o mesmo menu do solo e ranking com a equipe', en: 'New profile, friends rooms with the solo menu, and team lineups in the ranking' },
+    notes: [
+      {
+        pt: 'A conta agora é o seu perfil: foto de qualquer Pokémon que você tem, fundo comprado na loja, três favoritos (ou os mais usados), amigos e um resumo das últimas partidas.',
+        en: 'Your account is now your profile: a photo of any Pokémon you own, a background bought in the Mart, three favorites (or your most used), friends and a summary of your recent matches.',
+      },
+      {
+        pt: 'Jogar com amigos usa o mesmo menu de escolha do solo, com todos os Pokémon e a escolha de dificuldade. O ranking cooperativo mostra os Pokémon de cada jogador.',
+        en: 'Playing with friends uses the same picker as solo play, with every Pokémon and the difficulty choice. The co-op ranking shows the Pokémon of each player.',
+      },
+      {
+        pt: 'A ficha de todos os Pokémon agora mostra os atributos finais e os golpes com descrição, como na escolha por região. A dificuldade já não cobre o menu e o menu inicial cabe no celular na horizontal.',
+        en: 'The sheet in the all-Pokémon list now shows final stats and move descriptions, like the region picker. The difficulty bar no longer covers the menu, and the title menu fits phones in landscape.',
+      },
+    ],
+  },
+  {
+    date: '2026-10-16',
     title: { pt: 'Jogar com amigos: duelo 1 contra 1, perfil e visual', en: 'Playing with friends: 1v1 duels, profile and visuals' },
     notes: [
       {

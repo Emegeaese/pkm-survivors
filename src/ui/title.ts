@@ -114,7 +114,7 @@ const fitLogo = (canvas: HTMLCanvasElement) => {
   const dpr = window.devicePixelRatio || 1
   // Phones in landscape put the logo beside the menu (see CSS), so it gets half the width instead.
   const phoneLandscape = vh <= 500 && vw > vh
-  const [maxW, maxH] = phoneLandscape ? [vw * 0.46, vh * 0.6] : [Math.min(vw * 0.9, 640), vh * 0.3]
+  const [maxW, maxH] = phoneLandscape ? [vw * 0.44, vh * 0.34] : [Math.min(vw * 0.9, 640), vh * 0.3]
   const k = logoScale(canvas.width, canvas.height, maxW, maxH, dpr)
   const width = `${(canvas.width * k) / dpr}px`
   if (canvas.style.width !== width) {

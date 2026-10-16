@@ -6,6 +6,7 @@ import { isDifficulty, type Difficulty } from './difficulty'
 import { wonRun } from './meta'
 import { isRecord } from './parse'
 import type { RibbonTier } from './ribbons'
+import type { WallpaperId } from '../data/style'
 import type { Game } from './types'
 
 /**
@@ -227,8 +228,10 @@ export type PublicProfile = ProfileName & {
   followers: number
   following: number
   followed: boolean
-  /** Dex number of the Pokémon drawn behind the profile. */
-  bg?: number
+  /** The Pokémon shown as the profile photo, the wallpaper behind it and up to three favourites. */
+  photo?: PlayableId
+  wall?: WallpaperId
+  favs?: PlayableId[]
   /** Uids of the accepted friends, as the owner published them. */
   friends?: string[]
   /** Friends this player brought whose invite counted (`game/referral.ts`). Missing from an older API. */

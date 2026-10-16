@@ -1,6 +1,6 @@
 import { firebaseServices } from './firebase'
 import { accountHandle, accountState, accountUserId } from './account'
-import { boardId, compareScores, periodKey, teamEntryId, validModeResult, type RankingMode, type ScoreEntry } from './game/leaderboards'
+import { boardId, compareScores, periodKey, teamEntryId, validModeResult, type Lineup, type RankingMode, type ScoreEntry } from './game/leaderboards'
 import { BOARD_PERIODS, parseHandle, type Board, type BoardPeriod, type ChallengeBoard, type PublicProfile, type RunRanks, type RunResult } from './game/ranking'
 import type { Difficulty } from './game/difficulty'
 import type { DayKey } from './game/day'
@@ -10,6 +10,7 @@ import { dexCounts } from './game/dex'
 import { PLAYABLE, PLAYABLE_IDS } from './data/hatchlings'
 import { DIFFICULTY_IDS } from './game/difficulty'
 import { ONLINE_STATS } from './firebaseSocial'
+import { styleIds } from './data/style'
 
 export type BoardFilter = { difficulty: Difficulty; period: BoardPeriod; starter: import('./data/hatchlings').PlayableId | null; friends: boolean }
 export type BoardOptions = { mode: RankingMode; difficulty: Difficulty; period: BoardPeriod; teamSize: number }
@@ -22,7 +23,7 @@ export const readFirebaseBoard = async (options: BoardOptions): Promise<ScoreEnt
   } catch { return null }
 }
 
-type Start = { id: string; uid: string; mode: RankingMode; names: string[]; team: string[]; teamSize: number; teamId: string; challenge: DayKey | null }
+type Start = { lineup?: Lineup; id: string; uid: string; mode: RankingMode; names: string[]; team: string[]; teamSize: number; teamId: string; challenge: DayKey | null }
 const start = async (mode: RankingMode, team?: { ids: string[]; names: string[] }, challenge: DayKey | null = null): Promise<Start | null> => {
   const uid = accountUserId()
   if (!uid) return null
@@ -49,7 +50,7 @@ const publish = async (session: Start, result: RunResult, finishedAt = new Date(
     official = !!dailyRef && (!daily?.exists() || daily.data()?.runId === session.id)
     const old = prior.data()
     if (old && Number(old.time) >= result.time) return
-    const entry: ScoreEntry = { ...result, runId: session.id, uid: session.uid, name, handle, team: session.team, names: session.names, score: result.time, wins: 0, at: now.toISOString(), verified: false }
+    const entry: ScoreEntry = { ...result, runId: session.id, uid: session.uid, name, handle, team: session.team, names: session.names, ...(session.lineup?.length ? { lineup: session.lineup } : {}), score: result.time, wins: 0, at: now.toISOString(), verified: false }
     for (const [i] of boards.entries()) {
       const before = records[i]!.data()
       const won = result.outcome === 'victory'
@@ -134,7 +135,7 @@ export const firebaseRankedRun = (challenge: DayKey | null): RankedRun | null =>
   } }
 }
 export const startTeamRanking = (mode: 'coop' | 'versus', ids: string[], names: string[]) => startWithDeadline(mode, { ids, names })
-export const finishTeamRanking = async (session: Start | null, result: RunResult) => session ? sendResult(session, result) : { kind: 'unranked' as const }
+export const finishTeamRanking = async (session: Start | null, result: RunResult, lineup?: Lineup) => session ? sendResult(lineup ? { ...session, lineup } : session, result) : { kind: 'unranked' as const }
 
 export const firebaseBoard = async (filter: BoardFilter): Promise<Board | null> => {
   const rows = await readFirebaseBoard({ mode: 'solo', difficulty: filter.difficulty, period: filter.period, teamSize: 1 })
@@ -164,8 +165,14 @@ export const firebaseProfile = async (handle: string): Promise<PublicProfile | '
     const records: PublicProfile['records'] = {}
     for (const record of best) { const r = record.data() as ScoreEntry | undefined; if (r && validModeResult('solo', r)) records[r.difficulty] = r }
     const online = Object.fromEntries(ONLINE_STATS.map((k) => [k, Number(stats.data()?.[k] ?? 0)])) as NonNullable<PublicProfile['online']>
-    return { handle, name: String(data.name), title: null, online, dex: { seen: Number(stats.data()?.seen ?? 0), caught: Number(stats.data()?.caught ?? 0) }, records, recent, followers: fans.size, following: following.size, followed: ownFollowing.has(handle), ...(typeof data.bg === 'number' ? { bg: data.bg } : {}), friends: Array.isArray(data.friends) ? data.friends.filter((id): id is string => typeof id === 'string') : [], self: uid === accountUserId() }
+    return { handle, name: String(data.name), title: null, online, dex: { seen: Number(stats.data()?.seen ?? 0), caught: Number(stats.data()?.caught ?? 0) }, records, recent, followers: fans.size, following: following.size, followed: ownFollowing.has(handle), ...lookOf(data), friends: Array.isArray(data.friends) ? data.friends.filter((id): id is string => typeof id === 'string') : [], self: uid === accountUserId() }
   } catch { return null }
+}
+/** The public look fields of a profile document, keeping only ids this version knows. */
+const lookOf = (data: Record<string, unknown>): Pick<PublicProfile, 'photo' | 'wall' | 'favs'> => {
+  const photo = PLAYABLE_IDS.find((id) => id === data.photo), wall = styleIds('wallpaper').find((id) => id === data.wall)
+  const favs = Array.isArray(data.favs) ? data.favs.flatMap((raw) => PLAYABLE_IDS.find((id) => id === raw) ?? []).slice(0, 3) : []
+  return { ...(photo ? { photo } : {}), ...(wall ? { wall } : {}), ...(favs.length ? { favs } : {}) }
 }
 const followingHandles = async (uid: string | null) => {
   if (!uid) return new Set<string>()

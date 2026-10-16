@@ -13,6 +13,18 @@ import { BOARD_PERIODS } from '../game/ranking'
 import { friendIds } from '../firebaseSocial'
 import { profileScreen } from './profile'
 import { scoreboardText } from '../i18n/leaderboards'
+import { parseLineup, type ScoreEntry } from '../game/leaderboards'
+
+/** Every Pokémon the team played (a co-op row), or the one Pokémon of a solo or versus row. */
+const mons = (entry: ScoreEntry) => {
+  const lineup = parseLineup(entry.lineup)
+  const shown = lineup.length > 0 ? lineup : [{ starter: entry.starter, stage: entry.stage }]
+  return h('span', { class: `rank-mons n${shown.length}` }, ...shown.map((p, i) => {
+    const form = PLAYABLE[p.starter].line[Math.min(p.stage, PLAYABLE[p.starter].line.length - 1)]!
+    const owner = lineup.length > 1 ? entry.names[i] : undefined
+    return h('img', { src: portraitUrl(form.dex), alt: form.name, title: owner ? `${owner}: ${form.name}` : form.name })
+  }))
+}
 
 export const firebaseRankingScreen = (root: HTMLElement, input: Input, back: () => void): Screen => {
   const f = firebaseText(), m = t().ranking, options: BoardOptions = { mode: 'solo', period: 'all', difficulty: 'normal', teamSize: 2 }
@@ -43,7 +55,7 @@ export const firebaseRankingScreen = (root: HTMLElement, input: Input, back: () 
     const visible = (entries ?? []).map((entry, i) => ({ entry, rank: i + 1 })).filter(({ entry }) => scope.value !== 'friends' || entry.team.some((uid) => friends.has(uid) || uid === accountUserId()))
     if (entries && !visible.length) status.textContent = scope.value === 'friends' && !accountUserId() ? text.login : m.empty
     rows.replaceChildren(...visible.map(({ entry, rank }) => h('div', { class: `rank-row${rank <= 3 ? ` top${rank}` : ''}${entry.team.includes(accountUserId() ?? '') ? ' me' : ''}` },
-      h('span', { class: 'rank-pos' }, `#${rank}`), h('img', { src: portraitUrl(PLAYABLE[entry.starter].line[entry.stage]!.dex), alt: PLAYABLE[entry.starter].name }),
+      h('span', { class: 'rank-pos' }, `#${rank}`), mons(entry),
       h('span', { class: 'rank-who' }, h('button', { class: 'rank-profile', onclick: () => {
         if (sub) return
         el.classList.add('hidden'); sub = profileScreen(root, input, entry.handle, () => { sub = null; el.classList.remove('hidden') })

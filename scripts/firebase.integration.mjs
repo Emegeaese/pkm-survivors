@@ -129,15 +129,16 @@ test('unique handles and profile ownership', async () => {
   await assertFails(setDoc(doc(other, 'pkmProfiles/profile-owner'), { uid: 'profile-other', handle: 'ash', name: 'Fake', updatedAt: serverTimestamp() }))
 })
 
-test('profile background and published friends are owner-only and validated', async () => {
+test('profile look (photo, wallpaper, favourites) and published friends are owner-only and validated', async () => {
   const owner = db('profile-owner'), other = db('profile-other'), ref = (c) => doc(c, 'pkmProfiles/profile-owner')
   const base = { uid: 'profile-owner', handle: 'ash', name: 'Ash', updatedAt: serverTimestamp() }
-  await assertSucceeds(setDoc(ref(owner), { ...base, bg: 25, friends: ['friend-b'] }))
-  await assertFails(setDoc(ref(owner), { ...base, bg: 'pikachu' }))
-  await assertFails(setDoc(ref(owner), { ...base, bg: 0 }))
+  await assertSucceeds(setDoc(ref(owner), { ...base, photo: 'pikachu', wall: 'forest', favs: ['pikachu', 'eevee'], friends: ['friend-b'] }))
+  await assertFails(setDoc(ref(owner), { ...base, photo: 25 }))
+  await assertFails(setDoc(ref(owner), { ...base, favs: ['a', 'b', 'c', 'd'] }))
+  await assertFails(setDoc(ref(owner), { ...base, bg: 25 }))
   await assertFails(setDoc(ref(owner), { ...base, friends: 'friend-b' }))
   await assertFails(setDoc(ref(owner), { ...base, rank: 1 }))
-  await assertFails(setDoc(ref(other), { ...base, bg: 25 }))
+  await assertFails(setDoc(ref(other), { ...base, photo: 'pikachu' }))
 })
 test('presence is public to read, but each trainer writes only their own entry', async () => {
   const mine = env.authenticatedContext('presence-a').database(), other = env.authenticatedContext('presence-b').database(), guest = env.unauthenticatedContext().database()

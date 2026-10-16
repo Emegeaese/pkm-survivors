@@ -1,10 +1,16 @@
-import { accountRealName, accountState, saveProfile } from '../account'
-import { ONLINE_STATS, readTrainer, requestFriend, setProfileBackground, type FriendProfile } from '../firebaseSocial'
+import { accountRealName, accountState, saveProfile, signOut, syncSave } from '../account'
+import { ONLINE_STATS, readTrainer, requestFriend, setProfileLook, type FriendProfile } from '../firebaseSocial'
 import { socialText } from '../i18n/social'
 import { playSfx } from '../engine/audio'
 import type { Input } from '../engine/input'
 import { formatTime } from '../engine/math'
-import { PLAYABLE, type PlayableId } from '../data/hatchlings'
+import { PLAYABLE, PLAYABLE_IDS, type PlayableId } from '../data/hatchlings'
+import { styleIds, type WallpaperId } from '../data/style'
+import { ownsPokemon } from '../game/gacha'
+import { ownsStyle } from '../game/style'
+import { wallpaperUrl } from '../render/cosmetics'
+import { friendsScreen } from './friends'
+import { loadSave } from './save'
 import { DIFFICULTY_IDS, type Difficulty } from '../game/difficulty'
 import { handleProblem, normalizeHandle, parseDisplayName, suggestHandle, type ProfileRun, type PublicProfile } from '../game/ranking'
 import { RIBBON_TIERS, type RibbonTier } from '../game/ribbons'
@@ -73,10 +79,31 @@ const ribbonRow = (ribbons: Record<RibbonTier, number> | undefined) => {
   )
 }
 
-/** The profile's face: the Pokémon of its longest record, or a Poké Ball before any. */
+/** A family's last form: what a profile shows for a Pokémon the player picked. */
+const finalForm = (id: PlayableId) => PLAYABLE[id].line[PLAYABLE[id].line.length - 1]!
+
+/** The profile's face: the picked photo, else the Pokémon of its longest record, or a Poké Ball before any. */
 const headPortrait = (p: PublicProfile) => {
+  if (p.photo) return portraitUrl(finalForm(p.photo).dex)
   const best = Object.values(p.records).sort((a, b) => b.time - a.time)[0]
   return best ? runPortrait(best.starter, best.stage) : pokeballIcon()
+}
+
+/** The three favourites the player picked, or else the three Pokémon they used most in their recent runs. */
+const favourites = (p: PublicProfile): { ids: PlayableId[]; picked: boolean } => {
+  if (p.favs?.length) return { ids: p.favs, picked: true }
+  const counts = new Map<PlayableId, number>()
+  for (const run of p.recent) counts.set(run.starter, (counts.get(run.starter) ?? 0) + 1)
+  return { ids: [...counts].sort((a, b) => b[1] - a[1]).slice(0, 3).map(([id]) => id), picked: false }
+}
+
+/** Totals over the recent runs the profile lists. */
+const historyTiles = (p: PublicProfile) => {
+  const s = socialText(), runs = p.recent
+  const wins = runs.filter((r) => r.outcome === 'victory').length, best = Math.max(0, ...runs.map((r) => r.time))
+  const total = runs.reduce((sum, r) => sum + r.time, 0)
+  const tile = (label: string, value: string) => h('div', { class: 'history-tile' }, h('b', {}, value), h('span', {}, label))
+  return h('div', { class: 'history-tiles' }, tile(s.historyRuns, String(runs.length)), tile(s.historyWins, String(wins)), tile(s.historyBest, runs.length ? formatTime(best) : '—'), tile(s.historyAverage, runs.length ? formatTime(total / runs.length) : '—'))
 }
 
 /** Shares a profile link: the share sheet on phones, the clipboard elsewhere. */
@@ -92,15 +119,16 @@ const share = async (root: HTMLElement, p: PublicProfile) => {
 }
 
 /**
- * A public profile (`/?u=handle` opens it straight away): name, handle, the
- * equipped title, records per difficulty, Desafio do dia ribbons, Pokédex progress, recent ranked runs
- * and follower counts. Signed in, it offers Follow, or Edit on one's own.
+ * A public profile (`/?u=handle` opens it straight away): photo and wallpaper, name, handle, the
+ * equipped title, favourite (or most used) Pokémon, friends, records per difficulty, a summary of
+ * recent runs, Desafio do dia ribbons, Pokédex progress and recent ranked runs. Signed in, it
+ * offers Add friend; on one's own it is the account page: Edit, Friends, Trainer Card, Sync and Sign out.
  * Back, Esc or Backspace close it and call `onClose` after the key dispatch.
  */
 export const profileScreen = (root: HTMLElement, input: Input, handle: string, onClose: () => void): Screen => {
   const el = h('div', { class: 'screen dim profile-screen' })
   let nav: ReturnType<typeof menu> | null = null
-  /** The editor, open over the profile. */
+  /** The editor, the card or the friends, open over the profile. */
   let sub: Screen | null = null
   let current = handle
   let request = 0
@@ -140,27 +168,30 @@ export const profileScreen = (root: HTMLElement, input: Input, handle: string, o
         toast(root, sent ? s.requested : s.missing, 2200)
       },
     }
+    const shareAction: Action = { label: m.share, run: () => void share(root, p) }
+    const actions: Action[] = p.self
+      ? [{ label: m.edit, run: openEditor }, { label: s.friends, run: openFriends }, { label: m.card, run: () => openCard(p) }, shareAction, { label: t().account.syncNow, run: () => void syncSave() }, { label: t().account.signOut, run: () => void signOut().then(close) }, back()]
+      : [...(signedIn ? [addFriend] : []), shareAction, back()]
     const friendsBox = h('div', { class: 'profile-friends' })
     void fillFriends(friendsBox, p.friends ?? [])
-    const actions = [
-      ...(p.self ? [{ label: m.edit, run: openEditor }, { label: m.card, run: () => openCard(p) }] : signedIn ? [addFriend] : []),
-      { label: m.share, run: () => void share(root, p) },
-      back(),
-    ]
+    const fav = favourites(p)
     frame(
       [
         h(
           'div',
-          { class: 'profile-head' },
-          p.bg ? h('div', { class: 'profile-bg', style: `background-image:url(${portraitUrl(p.bg)})` }) : null,
+          { class: 'profile-head', style: `--wallpaper:url(${wallpaperUrl(p.wall)})` },
           h('img', { class: 'profile-portrait', src: headPortrait(p), alt: '' }),
           h('div', { class: 'profile-id' }, h('b', { class: 'profile-name' }, p.name), h('span', { class: 'profile-handle' }, `@${p.handle}`), titleBadge(p.title)),
         ),
         h('p', { class: 'profile-social' }, [s.friendsOf((p.friends ?? []).length), ...(p.brought ? [m.brought(p.brought)] : [])].join(' · ')),
-        section(s.friends, friendsBox),
         !p.self && !signedIn ? note(m.followGuest) : null,
+        ...(fav.ids.length
+          ? [section(fav.picked ? s.favorites : s.mostUsed, h('div', { class: 'profile-favs' }, ...fav.ids.map((id) => h('div', { class: 'profile-fav', title: finalForm(id).name }, h('img', { src: portraitUrl(finalForm(id).dex), alt: finalForm(id).name }), h('span', {}, PLAYABLE[id].name)))))]
+          : []),
+        section(s.friends, friendsBox),
+        section(s.matchHistory, historyTiles(p)),
         section(m.records, h('div', { class: 'profile-records' }, ...DIFFICULTY_IDS.map((d) => recordCell(d, p.records[d])))),
-        ...(p.online ? [section(socialText().profile, h('div', { class: 'online-stats' }, ...ONLINE_STATS.map((key) => h('div', {}, h('span', {}, socialText()[key]), h('b', {}, p.online![key])))))] : []),
+        ...(p.online ? [section(s.onlineStats, h('div', { class: 'online-stats' }, ...ONLINE_STATS.map((key) => h('div', {}, h('span', {}, s[key]), h('b', {}, p.online![key])))))] : []),
         ribbonRow(p.ribbons),
         section(
           m.dex,
@@ -205,6 +236,17 @@ export const profileScreen = (root: HTMLElement, input: Input, handle: string, o
       sub = null
       el.classList.remove('hidden')
       show(p)
+    })
+  }
+
+  /** The friends screen over one's own profile; the list shown here is reloaded when it closes. */
+  const openFriends = () => {
+    nav?.off()
+    el.classList.add('hidden')
+    sub = friendsScreen(root, input, () => {
+      sub = null
+      el.classList.remove('hidden')
+      void load()
     })
   }
 
@@ -264,24 +306,26 @@ export const profileEditor = (root: HTMLElement, input: Input, onClose: (saved: 
   const skip = h('button', { class: 'btn', type: 'button', onclick: () => close(false) }, m.later)
   let busy = false
   let closed = false
-  // The Pokémon behind the profile: changed only if the player touches the picker.
-  let bg: number | null = null, bgBefore: number | null = null, touched = false
-  const so = socialText()
-  const bgSearch = h('input', { class: 'field-input', type: 'search', placeholder: so.searchPokemon, 'aria-label': so.searchPokemon, autocomplete: 'off', spellcheck: 'false' })
-  const bgGrid = h('div', { class: 'bg-grid' })
-  const dexList = pokedex()
-  const pickBg = (dex: number | null) => { bg = dex; touched = true; renderBg() }
-  const renderBg = () => {
-    const q = bgSearch.value.trim().toLowerCase()
-    const shown = dexList.filter((e) => !q || e.name.toLowerCase().includes(q) || String(e.dex) === q).slice(0, 60)
-    bgGrid.replaceChildren(
-      h('button', { class: bg === null ? 'bg-cell selected' : 'bg-cell', type: 'button', onclick: () => pickBg(null) }, so.noBackground),
-      ...shown.map((e) => h('button', { class: bg === e.dex ? 'bg-cell selected' : 'bg-cell', type: 'button', title: e.name, 'aria-label': e.name, onclick: () => pickBg(e.dex) }, h('img', { src: portraitUrl(e.dex), alt: '', loading: 'lazy' }))),
-    )
+  // How the profile looks (photo, favourites, wallpaper): saved only when the player touches a picker.
+  const so = socialText(), mine = loadSave()
+  const owned = PLAYABLE_IDS.filter((id) => ownsPokemon(mine, id)).sort((x, y) => PLAYABLE[x].line[0].dex - PLAYABLE[y].line[0].dex)
+  const walls = styleIds('wallpaper').filter((id) => ownsStyle(mine.style, 'wallpaper', id))
+  let photo: PlayableId | null = null, wall: WallpaperId | null = null, favs: PlayableId[] = [], touched = false, loaded = !known
+  const search = h('input', { class: 'field-input look-search', type: 'search', placeholder: so.searchPokemon, 'aria-label': so.searchPokemon, autocomplete: 'off', spellcheck: 'false' })
+  const photoGrid = h('div', { class: 'bg-grid' }), favGrid = h('div', { class: 'bg-grid' }), wallGrid = h('div', { class: 'wall-grid' })
+  const cell = (id: PlayableId, on: boolean, pick: () => void) =>
+    h('button', { class: on ? 'bg-cell selected' : 'bg-cell', type: 'button', title: finalForm(id).name, 'aria-label': finalForm(id).name, 'aria-pressed': String(on), onclick: () => { if (!loaded) return; touched = true; pick(); renderLook() } },
+      h('img', { src: portraitUrl(finalForm(id).dex), alt: '', loading: 'lazy' }))
+  const renderLook = () => {
+    const q = search.value.trim().toLowerCase()
+    const list = owned.filter((id) => !q || PLAYABLE[id].line.some((form) => form.name.toLowerCase().includes(q)) || String(PLAYABLE[id].line[0].dex) === q).slice(0, 90)
+    photoGrid.replaceChildren(...list.map((id) => cell(id, photo === id, () => { photo = photo === id ? null : id })))
+    favGrid.replaceChildren(...list.map((id) => cell(id, favs.includes(id), () => { favs = favs.includes(id) ? favs.filter((x) => x !== id) : [...favs, id].slice(-3) })))
+    wallGrid.replaceChildren(...walls.map((id) => h('button', { class: (wall ?? 'classic') === id ? 'wall-cell selected' : 'wall-cell', type: 'button', style: `--wallpaper:url(${wallpaperUrl(id)})`, 'aria-label': t().mart.styles.wallpaper[id], onclick: () => { if (!loaded) return; touched = true; wall = id === 'classic' ? null : id; renderLook() } }, h('span', {}, t().mart.styles.wallpaper[id]))))
   }
-  bgSearch.addEventListener('input', renderBg)
-  if (known) void fetchProfile(known).then((p) => { if (p && p !== 'missing' && !touched) { bg = bgBefore = p.bg ?? null; renderBg() } })
-  renderBg()
+  search.addEventListener('input', renderLook)
+  if (known) void fetchProfile(known).then((p) => { if (p && p !== 'missing' && !touched) { photo = p.photo ?? null; wall = p.wall ?? null; favs = p.favs ?? []; renderLook() } }).finally(() => { loaded = true })
+  renderLook()
 
   const setMessage = (text: string, error = false) => {
     message.textContent = text
@@ -321,7 +365,7 @@ export const profileEditor = (root: HTMLElement, input: Input, onClose: (saved: 
     save.textContent = m.save
     if (closed) return
     if (result.ok) {
-      if (touched && bg !== bgBefore) await setProfileBackground(bg).catch(() => false)
+      if (touched) await setProfileLook({ photo, wall, favs: favs.length ? favs : null }).catch(() => false)
       return (playSfx('unlock'), close(true))
     }
     playSfx('hurt')
@@ -344,7 +388,9 @@ export const profileEditor = (root: HTMLElement, input: Input, onClose: (saved: 
     field(m.handle, handleInput, '@'),
     message,
     suggestion,
-    h('div', { class: 'field' }, h('span', { class: 'field-label' }, so.background), bgSearch, bgGrid),
+    h('div', { class: 'field' }, h('span', { class: 'field-label' }, so.photo), search, photoGrid),
+    h('div', { class: 'field' }, h('span', { class: 'field-label' }, so.favoritesPick), favGrid),
+    h('div', { class: 'field' }, h('span', { class: 'field-label' }, so.wallpaper), wallGrid, h('small', { class: 'profile-note small' }, so.wallpaperNote)),
     h('p', { class: 'profile-note small' }, m.publicNote),
     h('div', { class: 'buttons' }, save, skip),
     h('p', { class: 'hint keys-only' }, m.editHintKeys),

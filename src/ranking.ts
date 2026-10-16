@@ -16,7 +16,20 @@ export const startRanked = (challenge: DayKey | null = null): RankedRun | null =
 export const flushRuns = flushFirebaseRuns
 export const fetchBoard = (f: BoardFilter): Promise<Board | null> => firebaseBoard(f)
 export const fetchChallengeBoard = (day: DayKey, _friends = false): Promise<ChallengeBoard | null> => firebaseChallengeBoard(day)
-export const fetchProfile = (handle: string): Promise<PublicProfile | 'missing' | null> => firebaseProfile(handle)
+/** Dev builds only: `?u=demo` opens a made-up profile, to look at the layout without an account. */
+const demoProfile = (): PublicProfile => ({
+  handle: 'demo', name: 'Ash Ketchum', title: null, self: true, followers: 0, following: 0, followed: false, brought: 2,
+  photo: 'charmander', wall: 'forest', favs: ['charmander', 'squirtle', 'bulbasaur'], friends: [],
+  dex: { seen: 120, caught: 64 },
+  records: { normal: { starter: 'charmander', stage: 2, difficulty: 'normal', time: 1260, outcome: 'victory', at: '2026-10-10T12:00:00Z', verified: true } },
+  recent: [
+    { starter: 'charmander', stage: 2, difficulty: 'normal', time: 1260, outcome: 'victory', at: '2026-10-10T12:00:00Z', verified: true },
+    { starter: 'squirtle', stage: 1, difficulty: 'hard', time: 640, outcome: 'death', at: '2026-10-09T12:00:00Z', verified: true },
+    { starter: 'charmander', stage: 1, difficulty: 'normal', time: 410, outcome: 'death', at: '2026-10-08T12:00:00Z', verified: null },
+  ],
+  online: { coopRuns: 5, coopWins: 3, coopMinutes: 74, coopRevivals: 6, versusRuns: 4, versusWins: 2 },
+})
+export const fetchProfile = (handle: string): Promise<PublicProfile | 'missing' | null> => (import.meta.env.DEV && handle === 'demo' ? Promise.resolve(demoProfile()) : firebaseProfile(handle))
 export const setFollow = firebaseFollow
 
 /* ---------------- Links ---------------- */

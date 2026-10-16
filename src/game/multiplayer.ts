@@ -1,6 +1,7 @@
 import { PLAYABLE, type PlayableId } from '../data/hatchlings'
 import { ENEMIES, type EnemyId } from '../data/enemies'
 import { NO_RANKS } from './meta'
+import { DEFAULT_DIFFICULTY, type Difficulty } from './difficulty'
 import { advancePhase, chooseOffer, createGame, updateEvolution, updateMoves, updatePlayer, type StepInput } from './game'
 import { updateAttacks } from './attacks'
 import { updateBiome } from './biomes'
@@ -49,12 +50,12 @@ export type Command = { id: string; kind: 'pick'; index: number } | { id: string
 const capture = (g: Game): Personal => Object.fromEntries(PERSONAL.map((k) => [k, g[k]])) as Personal
 
 /** A single world/RNG with a separate loadout, health and evolution state for each trainer. */
-export const createMatch = (trainers: Trainer[], mode: MatchMode, seed: number): Match => {
+export const createMatch = (trainers: Trainer[], mode: MatchMode, seed: number, difficulty: Difficulty = DEFAULT_DIFFICULTY): Match => {
   if (trainers.length < 2 || trainers.length > 4 || new Set(trainers.map((t) => t.id)).size !== trainers.length || trainers.some((t) => !Object.hasOwn(PLAYABLE, t.starter))) throw new Error('Invalid team')
-  const game = createGame(trainers[0]!.starter, { w: 480, h: 270 }, seed)
+  const game = createGame(trainers[0]!.starter, { w: 480, h: 270 }, seed, NO_RANKS, undefined, { difficulty })
   game.partyXp = 0
   const members = trainers.map((trainer, i): Member => {
-    const g = createGame(trainer.starter, { w: 480, h: 270 }, seed + i + 1, NO_RANKS, game.roster, { shiny: trainer.shiny })
+    const g = createGame(trainer.starter, { w: 480, h: 270 }, seed + i + 1, NO_RANKS, game.roster, { shiny: trainer.shiny, difficulty })
     g.trainerId = trainer.id
     // Friends share fair starting upgrades in both modes.
     g.player.x = mode === 'coop' ? i * 24 : (i % 2 ? 120 : -120)

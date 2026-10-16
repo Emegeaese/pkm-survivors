@@ -276,7 +276,8 @@ const showMenu = (initial: PlayableId = lastStarter) => {
   const closeMart = martButton(ui, input, () => showShop())
   const closeBack = titleButton(ui, input, () => showTitle())
   const all = h('button', { class: 'btn all-pokemon-entry', onclick: () => showAllPokemon(select.selected()) }, firebaseText().catalogue)
-  select.el.querySelector('.select-footer')?.append(all, h('p', { class: 'initial-note' }, firebaseText().initial))
+  select.el.querySelector('.select-footer')?.append(all)
+  select.el.querySelector('.select-main')?.append(h('p', { class: 'initial-note' }, firebaseText().initial))
   setScreen({ ...select, dispose: () => (closeMart(), closeBack(), select.dispose()) })
 }
 

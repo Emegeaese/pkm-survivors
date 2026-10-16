@@ -1,4 +1,4 @@
-import { accountState, onAccountChange, registerAccount, resetPassword, signIn, signOut, syncSave, type AccountState } from '../account'
+import { accountState, onAccountChange, registerAccount, resetPassword, signIn, type AccountState } from '../account'
 import { firebaseErrorCode } from '../firebase'
 import { firebaseText } from '../i18n/firebase'
 import { playSfx } from '../engine/audio'
@@ -54,7 +54,8 @@ export const accountScreen = (root: HTMLElement, input: Input, onClose: () => vo
   const close = () => { dispose(); later(onClose) }
   const openProfile = (editor: boolean) => {
     panel.classList.add('hidden')
-    const back = () => { sub = null; panel.classList.remove('hidden'); build() }
+    // Signed in, the profile is the account page: leaving it leaves the account screen.
+    const back = () => { sub = null; if (accountState().kind === 'signedIn') { close(); return } panel.classList.remove('hidden'); build() }
     const s = accountState()
     sub = editor || s.kind !== 'signedIn' || !s.handle ? profileEditor(root, input, back) : profileScreen(root, input, s.handle, back)
   }
@@ -74,12 +75,7 @@ export const accountScreen = (root: HTMLElement, input: Input, onClose: () => vo
   const build = () => {
     if (disposed || sub || pending) return
     const s = accountState()
-    if (s.kind === 'signedIn') {
-      panel.replaceChildren(h('h2', {}, m.title), h('p', {}, s.name), h('p', {}, m[s.sync]),
-        h('div', { class: 'buttons' }, h('button', { class: 'btn', onclick: () => openProfile(!s.handle) }, s.handle ? m.viewProfile : m.createProfile),
-          h('button', { class: 'btn', onclick: () => { void syncSave() } }, m.syncNow), h('button', { class: 'btn', onclick: () => { void signOut() } }, m.signOut), h('button', { class: 'btn', onclick: close }, m.back)))
-      return
-    }
+    if (s.kind === 'signedIn') { openProfile(!s.handle); return }
     const button = h('button', { class: 'btn', type: 'submit' }, register ? f.register : f.login)
     const form = h('form', { onsubmit: (e) => { void submit(e) } }, h('label', {}, f.email, email), h('label', {}, f.password, password), ...(register ? [h('label', {}, f.name, name)] : []), error, button)
     password.autocomplete = register ? 'new-password' : 'current-password'

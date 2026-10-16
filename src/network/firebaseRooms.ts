@@ -8,7 +8,7 @@ import type { Database, Unsubscribe } from 'firebase/database'
 
 export type RoomConnection = { readyState: number; onopen: (() => void) | null; onmessage: ((event: { data: string }) => void) | null; onerror: ((code: string) => void) | null; onclose: (() => void) | null; send: (data: string) => void; close: () => void }
 type Member = Trainer & { ready: boolean; slot: number }
-type Room = { host: string; mode: MatchMode; seed: number; version: string; phase: 'lobby' | 'playing' | 'ended'; createdAt: number; m: Record<string, Member>; seats: Record<string, string>; roster?: Member[] }
+type Room = { host: string; mode: MatchMode; difficulty?: string; seed: number; version: string; phase: 'lobby' | 'playing' | 'ended'; createdAt: number; m: Record<string, Member>; seats: Record<string, string>; roster?: Member[] }
 type Peer = { pc: RTCPeerConnection | null; channel: RTCDataChannel | null; pending: RTCIceCandidateInit[]; queue: object[] }
 type Message = Record<string, unknown>
 const idle = (): StepInput => ({ move: { x: 0, y: 0 }, special: false, mega: false, lunge: false })
@@ -178,7 +178,7 @@ export const createFirebaseRoomConnection = (): RoomConnection => {
         for (const p of players) if (p.id !== uid) connectPeer(p.id, true)
         if (started && (room.roster ?? []).some((p) => !room!.m[p.id])) { broadcast({ type: 'ended', reason: 'disconnect' }); void close(); return }
       } else connectPeer(room.host, false)
-      if (room.phase === 'lobby') deliver({ type: 'lobby', code, host: room.host, seed: room.seed, mode: room.mode, players })
+      if (room.phase === 'lobby') deliver({ type: 'lobby', code, host: room.host, seed: room.seed, mode: room.mode, difficulty: room.difficulty, players })
       else if (!started && room.roster) begin()
     }, error))
     off.push(sdk.onChildAdded(sdk.ref(database, `pkm2Signals/${code}/${uid}`), (sender) => {
@@ -203,7 +203,7 @@ export const createFirebaseRoomConnection = (): RoomConnection => {
   const begin = () => {
     if (started || !room?.roster) return
     started = true
-    deliver({ type: 'start', seed: room.seed, mode: room.mode, players: room.roster })
+    deliver({ type: 'start', seed: room.seed, mode: room.mode, difficulty: room.difficulty, players: room.roster })
     while (pendingTicks.has(nextTick)) { const packet = pendingTicks.get(nextTick)!; pendingTicks.delete(nextTick++); deliver(packet) }
     if (room.host !== uid) return
     timer = setInterval(() => {
@@ -226,7 +226,7 @@ export const createFirebaseRoomConnection = (): RoomConnection => {
         const rng = createRng(random[0]!)
         for (let i = 0; i < 5; i++) {
           code = Math.floor(rng() * 0xffffff).toString(16).padStart(6, '0').toUpperCase()
-          const created = await sdk.runTransaction(path(), (current: Room | null) => current ? undefined : { host: uid, version: message.version, mode: message.mode, seed: random[0], phase: 'lobby', createdAt: sdk.serverTimestamp(), m: { [uid]: member }, seats: { 0: uid } })
+          const created = await sdk.runTransaction(path(), (current: Room | null) => current ? undefined : { host: uid, version: message.version, mode: message.mode, difficulty: typeof message.difficulty === 'string' ? message.difficulty.slice(0, 12) : 'normal', seed: random[0], phase: 'lobby', createdAt: sdk.serverTimestamp(), m: { [uid]: member }, seats: { 0: uid } })
           if (created.committed) break
           code = ''
         }

@@ -41,12 +41,13 @@ export const publishFriends = async (ids: string[]) => {
   await updateDoc(doc(firestore, 'pkmProfiles', uid), { friends: list, updatedAt: serverTimestamp() })
   publishedFriends = key
 }
-/** Sets (or clears, with null) the Pokémon drawn behind the player's profile. */
-export const setProfileBackground = async (dex: number | null) => {
+/** How the player looks on their public profile: the Pokémon photo, the wallpaper and up to three favourites. null clears a field. */
+export type ProfileLook = { photo: string | null; wall: string | null; favs: string[] | null }
+export const setProfileLook = async (look: ProfileLook) => {
   const uid = accountUserId()
   if (!uid) return false
   const { firestore } = await firebaseServices(), { doc, updateDoc, deleteField, serverTimestamp } = await import('firebase/firestore')
-  await updateDoc(doc(firestore, 'pkmProfiles', uid), { bg: dex ?? deleteField(), updatedAt: serverTimestamp() })
+  await updateDoc(doc(firestore, 'pkmProfiles', uid), { photo: look.photo ?? deleteField(), wall: look.wall ?? deleteField(), favs: look.favs?.length ? look.favs.slice(0, 3) : deleteField(), updatedAt: serverTimestamp() })
   return true
 }
 export const requestFriend = async (handle: string) => {

@@ -82,7 +82,7 @@ const shinyPicker = (shiny: boolean, set: (shiny: boolean) => void) => {
 }
 
 /** Detailed sheet of a playable Pokémon: sprite, types, stat bars, evolution line and every move it can learn. `picker`: its Normal/Shiny pick, when unlocked. */
-const inspectPanel = (id: PlayableId, stage: number, onStage: (stage: number) => void, sprite: HTMLCanvasElement, picker: HTMLElement | null) => {
+export const inspectPanel = (id: PlayableId, stage: number, onStage: (stage: number) => void, sprite: HTMLElement, picker: HTMLElement | null) => {
   const m = t()
   const s: PlayableDef = PLAYABLE[id]
   const form = s.line[stage]!
@@ -171,7 +171,7 @@ const lockedPanel = (id: HatchlingId, sprite: HTMLCanvasElement) => {
  * level is open from the start; a pick is saved right away, so the next run
  * (and the next visit) plays it.
  */
-const difficultyPicker = (initial: Difficulty) => {
+export const difficultyPicker = (initial: Difficulty) => {
   const m = t().difficulty
   let current = initial
   const options = DIFFICULTY_IDS.map((id) =>
@@ -208,7 +208,9 @@ const difficultyPicker = (initial: Difficulty) => {
     ),
     blurb,
   )
-  return { el, cycle }
+  /** Re-reads the save (a select screen may have changed it). */
+  const sync = () => { const saved = loadSave().difficulty; if (saved !== current) { current = saved; render() } }
+  return { el, cycle, sync }
 }
 
 /** Keys that flip each bag item on the select screen. */
@@ -276,7 +278,7 @@ const GROUPS: readonly Group[] = [...REGIONS.map((region) => ({ kind: 'region', 
 
 type Cursor = { group: number; slot: number }
 
-type SelectActions = { pick: (id: PlayableId) => void; incubator: () => void }
+type SelectActions = { pick: (id: PlayableId) => void; /** Without it (a friends room) the incubator entry is hidden. */ incubator?: () => void }
 
 /**
  * Region-tabbed Pokémon selector with an always-visible inspect panel. After
@@ -345,7 +347,7 @@ export const starterSelect = (root: HTMLElement, input: Input, actions: SelectAc
     ),
   )
   const ready = save.eggs.filter(isReady).length
-  const openIncubator = () => (playSfx('select'), later(actions.incubator))
+  const openIncubator = () => { if (actions.incubator) (playSfx('select'), later(actions.incubator)) }
   const grid = h('div', { class: 'egg-box' }, ...cells)
   /** Columns the egg box shows right now (CSS changes them with the screen); ↑/↓ move a row inside it. */
   const boxCols = () => getComputedStyle(grid).gridTemplateColumns.split(' ').length || 1
@@ -355,7 +357,7 @@ export const starterSelect = (root: HTMLElement, input: Input, actions: SelectAc
     grid,
     h(
       'button',
-      { class: 'incubator-entry box', onclick: openIncubator },
+      { class: actions.incubator ? 'incubator-entry box' : 'incubator-entry box hidden', onclick: openIncubator },
       h('img', { src: eggIcon('common'), alt: '' }),
       h('span', {}, m.eggs.incubator(save.eggs.length, EGGS.slots)),
       ready > 0 && h('b', { class: 'blink' }, m.eggs.readyBadge(ready)),

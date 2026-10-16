@@ -1,5 +1,8 @@
 import type { Input } from '../engine/input'
-import { PLAYABLE, PLAYABLE_IDS, playableDex } from '../data/hatchlings'
+import { PLAYABLE, PLAYABLE_IDS, playableDex, type PlayableId } from '../data/hatchlings'
+import { DIFFICULTY_IDS } from '../game/difficulty'
+import { pokemonPicker } from './pokemonPicker'
+import { difficultyPicker } from './starterSelect'
 import { ownsPokemon, ownsShiny } from '../game/gacha'
 import { createMatch, matchHash, NETWORK_VERSION, REVIVE_SECONDS, selectMember, spectatorTarget, stepMatch, versusRadius, type Match, type MatchMode, type Trainer } from '../game/multiplayer'
 import { toSteps } from '../game/eggs'
@@ -31,7 +34,7 @@ import { settings } from './settings'
 import { createHud, type Hud } from './hud'
 import { levelUp, type Screen } from './screens'
 
-type Lobby = { code: string; mode: MatchMode; seed: number; host: string; players: Array<Trainer & { ready: boolean }> }
+type Lobby = { code: string; mode: MatchMode; difficulty?: string; seed: number; host: string; players: Array<Trainer & { ready: boolean }> }
 const readStorage = (key: string, fallback: string) => { try { return localStorage.getItem(key) ?? fallback } catch { return fallback } }
 const store = (key: string, value: string) => { try { localStorage.setItem(key, value) } catch { /* Session only. */ } }
 
@@ -42,12 +45,20 @@ export const multiplayerScreen = (root: HTMLElement, input: Input, ctx: CanvasRe
   const devRoom = import.meta.env.DEV ? params.get('devroom') : null
   const name = h('input', { value: account.kind === 'signedIn' ? account.name : readStorage('pkm:trainer', 'Trainer'), maxlength: 24, 'aria-label': m.name })
   const code = h('input', { value: params.get('room')?.slice(0, 6) ?? '', maxlength: 6, placeholder: m.code, 'aria-label': m.code, autocapitalize: 'characters' })
-  const pokemon = h('select', { 'aria-label': m.collection }, ...PLAYABLE_IDS.filter((id) => ownsPokemon(save, id)).sort((a, b) => PLAYABLE[a].line[0].dex - PLAYABLE[b].line[0].dex).map((id) => h('option', { value: id, selected: id === 'charmander' }, PLAYABLE[id].name)))
+  const owned = PLAYABLE_IDS.filter((id) => ownsPokemon(save, id)).sort((a, b) => PLAYABLE[a].line[0].dex - PLAYABLE[b].line[0].dex)
+  const remembered = readStorage('pkm:friend-starter', 'charmander')
+  let chosen: PlayableId = owned.find((id) => id === remembered) ?? owned[0] ?? 'charmander'
+  const chosenImg = h('img', { alt: '' }), chosenName = h('b')
+  const pokemon = h('button', { class: 'btn pokemon-choice', type: 'button', 'aria-label': m.collection, onclick: () => openPicker() }, chosenImg, chosenName)
+  const drawChosen = () => { chosenImg.src = portraitUrl(PLAYABLE[chosen].line[0].dex); chosenName.textContent = PLAYABLE[chosen].name }
   const shiny = h('input', { type: 'checkbox' })
+  const difficulty = difficultyPicker(save.difficulty)
   const mode = h('select', { 'aria-label': m.friends }, h('option', { value: 'coop' }, m.coop), h('option', { value: 'versus' }, m.versus), h('option', { value: 'duel' }, m.duel))
+  // Difficulty only matters against the horde.
+  mode.onchange = () => difficulty.el.classList.toggle('hidden', mode.value !== 'coop')
   const status = h('p', { role: 'status', 'aria-live': 'polite' }), players = h('div', { class: 'room-players' })
   const actions = h('div', { class: 'buttons' }), joinActions = h('div', { class: 'buttons' })
-  const config = h('div', { class: 'room-config' }, h('label', {}, m.name, name), h('label', {}, m.collection, pokemon), h('label', {}, shiny, m.shiny), h('label', {}, m.friends, mode), h('label', {}, m.code, code))
+  const config = h('div', { class: 'room-config' }, h('label', {}, m.name, name), h('label', {}, m.collection, pokemon), h('label', {}, shiny, m.shiny), h('label', {}, m.friends, mode), difficulty.el, h('label', {}, m.code, code))
   const panel = h('div', { class: 'feature-panel box room-panel' }, h('h1', {}, m.friends), h('p', {}, m.lobbyInfo), config, status, players, joinActions, actions, h('p', {}, f.firebase))
   const el = h('div', { class: 'screen feature-screen room-screen' }, panel)
   root.append(el)
@@ -69,9 +80,17 @@ export const multiplayerScreen = (root: HTMLElement, input: Input, ctx: CanvasRe
   root.append(team, notice, spectator)
   const send = (data: object) => { if (ws?.readyState === 1) ws.send(JSON.stringify(data)) }
   const disconnect = () => { const old = ws; ws = null; old?.close(); if (timeout) clearTimeout(timeout); timeout = null }
-  const selected = () => PLAYABLE_IDS.find((id) => id === pokemon.value) ?? 'charmander'
+  const selected = () => chosen
   const refreshShiny = () => { shiny.disabled = !ownsShiny(save, selected()); if (shiny.disabled) shiny.checked = false }
-  pokemon.onchange = refreshShiny; refreshShiny()
+  drawChosen(); refreshShiny()
+  /** The solo select (regions, difficulty, inspect sheet, every Pokémon) over the room screen. */
+  let picker: Screen | null = null
+  const openPicker = () => {
+    if (picker) return
+    panel.classList.add('hidden')
+    const close = () => { picker?.dispose(); picker = null; panel.classList.remove('hidden'); drawChosen(); refreshShiny(); difficulty.sync() }
+    picker = pokemonPicker(root, input, chosen, (id) => { chosen = id; store('pkm:friend-starter', id); later(close) }, () => later(close))
+  }
   const finish = (interrupted = false) => {
     if (!match || (paid && match.mode === 'versus')) return
     const beforeTickets = loadSave().gacha.earned
@@ -104,7 +123,8 @@ export const multiplayerScreen = (root: HTMLElement, input: Input, ctx: CanvasRe
       if (match.mode === 'versus') result.outcome = match.result === self ? 'victory' : 'death'
       if (match.result === 'victory') result.outcome = 'victory'
       if (!match.result) result.outcome = 'quit'
-      void ranking.then((session) => finishTeamRanking(session, result))
+      const lineup = match.members.map((p) => ({ starter: p.state.starter, stage: p.state.player.stage }))
+      void ranking.then((session) => finishTeamRanking(session, result, lineup))
     }
   }
   const showEnd = (message: string, interrupted = false) => {
@@ -137,7 +157,7 @@ export const multiplayerScreen = (root: HTMLElement, input: Input, ctx: CanvasRe
     status.textContent = m.loading
     actions.querySelectorAll('button').forEach((b) => { b.disabled = true })
     try {
-      const preview = createMatch(lobby.players.length >= 2 ? lobby.players : [...lobby.players, { ...lobby.players[0]!, id: 'preview' }], lobby.mode, lobby.seed)
+      const preview = createMatch(lobby.players.length >= 2 ? lobby.players : [...lobby.players, { ...lobby.players[0]!, id: 'preview' }], lobby.mode, lobby.seed, DIFFICULTY_IDS.find((d) => d === snapshot.difficulty) ?? 'normal')
       const dex = [...lobby.players.flatMap((p) => playableDex(p.starter)), ...rosterSchedule(preview.game.roster).filter((s) => s.at === 0).map((s) => s.dex)]
       await loadAll(dex)
       await Promise.all(lobby.players.filter((p) => p.shiny).map((p) => preloadShinies(playableDex(p.starter))))
@@ -147,8 +167,9 @@ export const multiplayerScreen = (root: HTMLElement, input: Input, ctx: CanvasRe
   }
   const showLobby = () => {
     if (!lobby) return
+    const snapshot = lobby
     config.classList.add('hidden'); joinActions.replaceChildren()
-    status.textContent = `${lobby.code} · ${lobby.mode === 'coop' ? m.coop : m.versus}`
+    status.textContent = `${lobby.code} · ${lobby.mode === 'coop' ? m.coop : m.versus}${snapshot.mode === 'coop' ? ` · ${t().difficulty.names[DIFFICULTY_IDS.find((d) => d === snapshot.difficulty) ?? 'normal']}` : ''}`
     players.replaceChildren(...lobby.players.map((p) => h('div', { class: 'room-player box' }, h('img', { src: `/assets/pokemon/${PLAYABLE[p.starter].line[0].dex}/portrait.png`, alt: '' }), h('b', {}, p.name), h('span', {}, PLAYABLE[p.starter].name), h('span', {}, p.ready ? '✓' : '…'))))
     const myself = lobby.players.find((p) => p.id === self)
     actions.replaceChildren(h('button', { class: 'btn', disabled: myself?.ready, onclick: ready }, m.ready),
@@ -166,7 +187,7 @@ export const multiplayerScreen = (root: HTMLElement, input: Input, ctx: CanvasRe
     try { ws = devRoom ? createDevRoomConnection(devRoom) : createFirebaseRoomConnection() } catch { fail(); return }
     const socket = ws
     timeout = setTimeout(() => { if (!lobby) fail() }, 10000)
-    ws.onopen = () => send({ type: kind, name: name.value, starter: selected(), shiny: shiny.checked && ownsShiny(save, selected()), mode: mode.value === 'duel' ? 'versus' : mode.value, size: mode.value === 'duel' ? 2 : 4, code: code.value.trim().toUpperCase(), version: `${NETWORK_VERSION}:${__GAME_VERSION__}` })
+    ws.onopen = () => send({ type: kind, name: name.value, starter: selected(), shiny: shiny.checked && ownsShiny(save, selected()), mode: mode.value === 'duel' ? 'versus' : mode.value, difficulty: loadSave().difficulty, size: mode.value === 'duel' ? 2 : 4, code: code.value.trim().toUpperCase(), version: `${NETWORK_VERSION}:${__GAME_VERSION__}` })
     ws.onerror = (code) => { if (ws === socket) fail(code === 'auth-required' ? f.loginRequired : code.includes('permission') || code.includes('PERMISSION') ? f.rules : f.error) }
     ws.onclose = () => { if (ws === socket && !ended) fail(m.disconnected) }
     ws.onmessage = (event) => {
@@ -179,7 +200,7 @@ export const multiplayerScreen = (root: HTMLElement, input: Input, ctx: CanvasRe
         else if (msg.type === 'start') {
           if (timeout) clearTimeout(timeout)
           ranking = startTeamRanking(msg.mode, msg.players.map((p: Trainer) => p.id), msg.players.map((p: Trainer) => p.name))
-          match = createMatch(msg.players, msg.mode, msg.seed)
+          match = createMatch(msg.players, msg.mode, msg.seed, DIFFICULTY_IDS.find((d) => d === msg.difficulty) ?? 'normal')
           panel.classList.add('hidden'); el.classList.add('room-playing'); team.classList.remove('hidden'); notice.classList.remove('hidden')
           hud = createHud(root, () => { special = true }, () => { mega = true }, () => { lunge = true }, () => { if (match?.mode === 'coop') command('pause') })
           cards.clear()

@@ -54,7 +54,7 @@ export const saveProfile = async (profile: ProfileName): Promise<ProfileSaved> =
       if (typeof previous === 'string' && previous !== profile.handle) tx.delete(doc(firestore, 'pkmHandles', previous))
       tx.set(handleRef, { uid })
       const keep = old.data()
-      tx.set(profileRef, { uid, name: profile.name.trim(), handle: profile.handle, updatedAt: serverTimestamp(), ...(typeof keep?.bg === 'number' ? { bg: keep.bg } : {}), ...(Array.isArray(keep?.friends) ? { friends: keep.friends } : {}) })
+      tx.set(profileRef, { uid, name: profile.name.trim(), handle: profile.handle, updatedAt: serverTimestamp(), ...(typeof keep?.photo === 'string' ? { photo: keep.photo } : {}), ...(typeof keep?.wall === 'string' ? { wall: keep.wall } : {}), ...(Array.isArray(keep?.favs) ? { favs: keep.favs } : {}), ...(Array.isArray(keep?.friends) ? { friends: keep.friends } : {}) })
       return true
     })
     if (!free) return { ok: false, reason: 'taken', suggestion: `${profile.handle.slice(0, 14)}_${uid.slice(0, 4).toLowerCase()}` }

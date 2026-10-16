@@ -5541,3 +5541,75 @@ a.btn.dex-site {
 }
 .rank-personal { color: #f5f5e6; }
 .firebase-rank-list:empty { display: none; }
+
+/* ---- Pokémon catalogue: the same sheet as the region select ---- */
+.collection-detail { display: block; max-height: calc(100dvh - 190px); overflow-y: auto; padding: 14px 16px 16px; }
+.collection-detail > .btn { margin-top: 12px; width: 100%; }
+.collection-detail .collection-portrait { width: 96px; height: 96px; object-fit: contain; image-rendering: pixelated; }
+@media (max-width: 700px) { .collection-detail { max-height: none; } }
+
+/* ---- Pokémon select footer: an opaque bar, so it never paints over the sheet ---- */
+.select-footer { z-index: 5; flex-direction: row; flex-wrap: wrap; justify-content: center; align-items: center; gap: 8px 12px; width: 100%; margin-top: 4px; padding: 8px 8px calc(8px + env(safe-area-inset-bottom)); background: #101830f2; border-top: 2px solid #6878a8; border-radius: 8px 8px 0 0; }
+.select-footer .difficulty-picker { box-shadow: none; }
+.select-main .initial-note { margin: 0 auto; max-width: 100%; font-size: 14px; color: #f5f5e6; text-shadow: 1px 1px #000; }
+@media (max-width: 960px) { .select-footer .difficulty-blurb { display: none; } .select-footer .difficulty-picker { padding: 4px 8px; } }
+.collection-layout { grid-template-columns: minmax(0, 1fr) minmax(300px, 440px); align-items: start; }
+@media (max-width: 760px) { .collection-layout { grid-template-columns: minmax(0, 1fr); } }
+
+/* ---- Ranking: every Pokémon the team played ---- */
+.firebase-rank-list .rank-row { grid-template-columns: 44px max-content minmax(0, 1fr) auto; }
+.firebase-rank-list .rank-mons { grid-area: img; display: flex; flex-wrap: wrap; justify-content: center; gap: 2px; width: 52px; padding: 2px; background: #15253b; border-radius: 8px; }
+.firebase-rank-list .rank-mons.n2, .firebase-rank-list .rank-mons.n3, .firebase-rank-list .rank-mons.n4 { width: 80px; }
+.firebase-rank-list .rank-mons img { width: 48px; height: 48px; padding: 0; background: none; border-radius: 0; }
+.firebase-rank-list .rank-mons.n2 img, .firebase-rank-list .rank-mons.n3 img, .firebase-rank-list .rank-mons.n4 img { width: 36px; height: 36px; }
+@media (max-width: 560px) {
+  .firebase-rank-list .rank-row { grid-template-columns: 34px max-content minmax(0, 1fr); }
+  .firebase-rank-list .rank-mons { width: 44px; }
+  .firebase-rank-list .rank-mons.n2, .firebase-rank-list .rank-mons.n3, .firebase-rank-list .rank-mons.n4 { width: 68px; }
+  .firebase-rank-list .rank-mons img { width: 40px; height: 40px; }
+  .firebase-rank-list .rank-mons.n2 img, .firebase-rank-list .rank-mons.n3 img, .firebase-rank-list .rank-mons.n4 img { width: 31px; height: 31px; }
+}
+
+/* ---- Friends room: Pokémon chooser button ---- */
+.pokemon-choice { display: inline-flex; align-items: center; gap: 8px; min-height: 52px; color: var(--ink); }
+.pokemon-choice img { width: 44px; height: 44px; image-rendering: pixelated; }
+.room-config .difficulty-picker { align-self: center; max-width: 100%; }
+
+/* ---- Profile / account page: wallpaper banner, favourites, history ---- */
+.dialog.profile { width: min(620px, 100%); overflow-y: auto; overflow-x: hidden; scrollbar-gutter: stable; scrollbar-width: thin; padding: 16px 20px 16px 16px; }
+.dialog.profile > * { min-width: 0; }
+.profile-head { padding: 14px; background: var(--wallpaper) 0 0 / 64px 64px #5070b8; image-rendering: pixelated; border: 3px solid #283048; border-radius: 8px; }
+.profile-head > * { image-rendering: auto; }
+.profile-head .profile-portrait { width: 84px; height: 84px; padding: 6px; background: #fff; border: 3px solid #283048; border-radius: 10px; object-fit: contain; image-rendering: pixelated; }
+.profile-head .profile-id { padding: 6px 10px; background: #ffffffe8; border-radius: 8px; }
+.profile-favs { display: flex; flex-wrap: wrap; gap: 8px; }
+.profile-fav { display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 80px; padding: 6px 8px; background: #e4e8f4; border: 2px solid #6878a8; border-radius: 8px; font-size: 16px; }
+.profile-fav img { width: 56px; height: 56px; image-rendering: pixelated; object-fit: contain; }
+.history-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; }
+.history-tile { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px; background: #e4e8f4; border-radius: 8px; }
+.history-tile b { font-family: var(--title); font-size: 14px; }
+.history-tile span { font-size: 16px; color: #4a5a85; }
+.profile .friend-chip { color: var(--ink); background: #e4e8f4; border-color: #6878a8; }
+.profile-friends small { color: #4a5a85; }
+.profile .buttons { flex-wrap: wrap; }
+.profile .buttons .btn { white-space: normal; }
+.dialog.profile-editor { width: min(520px, 100%); max-height: 100%; overflow-y: auto; scrollbar-gutter: stable; }
+.profile-editor .bg-grid { background: #e4e8f4; }
+.profile-editor .bg-cell { background: #fff; border-color: #c4cce0; color: var(--ink); }
+.profile-editor .bg-cell.selected { border-color: #e83838; background: #fff4d0; }
+.wall-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 6px; }
+.wall-cell { display: flex; align-items: flex-end; justify-content: center; min-height: 64px; padding: 4px; font: inherit; font-size: 15px; color: #fff; text-shadow: 1px 1px #000; background: var(--wallpaper) 0 0 / 64px 64px #5070b8; image-rendering: pixelated; border: 3px solid #c4cce0; border-radius: 8px; cursor: pointer; }
+.wall-cell span { image-rendering: auto; }
+.wall-cell.selected { border-color: #e83838; }
+@media (max-width: 520px) { .dialog.profile { padding: 12px 12px 12px 10px; } .profile-head .profile-portrait { width: 64px; height: 64px; } }
+
+/* ---- Phones in landscape: a short title column that clears the language switch and the account chip ---- */
+@media (max-height: 500px) and (orientation: landscape) {
+  .title-home { padding-top: max(52px, env(safe-area-inset-top)); align-items: center; }
+  .title-head { gap: 4px; }
+  .outbreak-text span, .invite-blurb { display: none; }
+  .outbreak-sprites { width: 76px; height: 40px; }
+  .outbreak-banner, .invite-banner { padding: 4px 8px; max-width: 44vw; }
+  .invite-banner img { width: 22px; height: 26px; }
+  .online-count { margin: 0; }
+}

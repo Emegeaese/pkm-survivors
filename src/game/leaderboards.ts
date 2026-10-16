@@ -1,6 +1,7 @@
 import type { BoardPeriod, RunResult } from './ranking'
 import type { Difficulty } from './difficulty'
 import { parseRunResult } from './ranking'
+import { PLAYABLE_IDS, type PlayableId } from '../data/hatchlings'
 
 export type RankingMode = 'solo' | 'coop' | 'versus'
 export const periodKey = (period: BoardPeriod, date: Date) => {
@@ -13,7 +14,17 @@ export const periodKey = (period: BoardPeriod, date: Date) => {
 }
 export const boardId = (mode: RankingMode, difficulty: Difficulty, period: BoardPeriod, date: Date, teamSize = 1) => `${mode}_${difficulty}_${mode === 'coop' ? teamSize : 1}_${period}_${periodKey(period, date)}`
 export const teamEntryId = (ids: readonly string[]) => [...new Set(ids)].sort().join('_')
-export type ScoreEntry = RunResult & { runId: string; uid: string; name: string; handle: string; team: string[]; names: string[]; score: number; wins: number; at: string; verified: boolean }
+/** The Pokémon a team played: one per trainer, in `team` order, in the form each ended in. */
+export type Lineup = Array<{ starter: PlayableId; stage: number }>
+/** A lineup read from a stored entry: unknown Pokémon and out-of-range stages are dropped (at most four). */
+export const parseLineup = (raw: unknown): Lineup => Array.isArray(raw)
+  ? raw.slice(0, 4).flatMap((item): Lineup => {
+    const starter = typeof item?.starter === 'string' ? PLAYABLE_IDS.find((id) => id === item.starter) : undefined
+    const stage = typeof item?.stage === 'number' ? Math.min(2, Math.max(0, Math.floor(item.stage))) : 0
+    return starter ? [{ starter, stage }] : []
+  })
+  : []
+export type ScoreEntry = RunResult & { lineup?: Lineup; runId: string; uid: string; name: string; handle: string; team: string[]; names: string[]; score: number; wins: number; at: string; verified: boolean }
 export const compareScores = (a: ScoreEntry, b: ScoreEntry) => b.score - a.score || b.kills - a.kills || a.at.localeCompare(b.at)
 /** A versus victory can happen before the solo boss appears. */
 export const validModeResult = (mode: RankingMode, result: RunResult) => !!parseRunResult(mode === 'versus' ? { ...result, outcome: 'death' } : result)
