@@ -5390,6 +5390,7 @@ a.btn.dex-site {
 }
 /* Collection, ticket gacha and private room screens. */
 .initial-note { max-width: 480px; margin: 0; line-height: 1.4; font-size: 17px; text-align: center; }
+.all-pokemon-entry { color: var(--ink); background: #fff; border: 2px solid #7585a5; }
 .pokemon-stats { width: 100%; flex-basis: 100%; }
 .pokemon-stats .bar-base { background: var(--accent, #7895ff); }
 .firebase-account form { display: grid; gap: 12px; width: 100%; }
