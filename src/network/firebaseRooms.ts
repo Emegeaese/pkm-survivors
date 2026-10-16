@@ -152,10 +152,11 @@ export const createFirebaseRoomConnection = (): RoomConnection => {
       }
       queue = queue.filter((p) => !isObject(p) || p.type !== 'ack' || typeof p.hash === 'number')
       if (!queue.length) continue
-      const batches: object[][] = []; let batch: object[] = []
+      const batches: object[][] = []; let batch: object[] = [], bytes = 2
       for (const packet of queue) {
-        if (JSON.stringify(batch).length + JSON.stringify(packet).length > 90000) { batches.push(batch); batch = [] }
-        batch.push(packet)
+        const size = JSON.stringify(packet).length + 1
+        if (bytes + size > 90000 && batch.length) { batches.push(batch); batch = []; bytes = 2 }
+        batch.push(packet); bytes += size
       }
       if (batch.length) batches.push(batch)
       for (const messages of batches) void relay(id, 'data', { messages }).catch(error)
@@ -195,7 +196,9 @@ export const createFirebaseRoomConnection = (): RoomConnection => {
         } catch { /* Ignore malformed relay messages. */ }
       }, error))
     }, error))
-    flushTimer = setInterval(flushRelay, 200)
+    // 200 ms per leg could add 400 ms before a relayed input reached the world.
+    // Keep batching (especially on mobile) while bounding that wait to 50 ms per leg.
+    flushTimer = setInterval(flushRelay, 50)
   }
   const begin = () => {
     if (started || !room?.roster) return

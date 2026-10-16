@@ -28,12 +28,22 @@ import { updateWeather } from './weather'
 import type { Enemy, Game } from './types'
 import * as dm from '../engine/dmath'
 
-export const NETWORK_VERSION = 1
+export const NETWORK_VERSION = 2
 export type MatchMode = 'coop' | 'versus'
 export type Trainer = { id: string; name: string; starter: PlayableId; shiny: boolean }
 const PERSONAL = ['starter', 'player', 'special', 'mega', 'attacks', 'buffs', 'ranks', 'rerolls', 'skips', 'pendingLevelUps', 'offers', 'evolution', 'revives', 'phase', 'damageByMove', 'trainerId'] as const satisfies readonly (keyof Game)[]
 type Personal = Pick<Game, (typeof PERSONAL)[number]>
-export type Member = { trainer: Trainer; state: Personal; revive: number; connected: boolean }
+export type Member = { trainer: Trainer; state: Personal; revive: number; revivals: number; connected: boolean }
+export const REVIVE_SECONDS = 5
+/** Presentation only: never selects a different simulation member or changes the match. */
+export const spectatorTarget = (m: Match, self: string, current: string | null, direction = 0): Member | undefined => {
+  const local = m.members.find((p) => p.trainer.id === self)
+  if (local && alive(local)) return local
+  const candidates = m.members.filter(alive)
+  if (!candidates.length) return local
+  const index = candidates.findIndex((p) => p.trainer.id === current)
+  return candidates[index < 0 ? 0 : (index + direction + candidates.length) % candidates.length]
+}
 export type Match = { game: Game; members: Member[]; mode: MatchMode; paused: boolean; result: 'victory' | 'defeat' | string | null; tick: number; scaled: Set<number>; proxies: Map<string, Enemy> }
 export type Command = { id: string; kind: 'pick'; index: number } | { id: string; kind: 'pause' | 'endless' | 'leave' }
 const capture = (g: Game): Personal => Object.fromEntries(PERSONAL.map((k) => [k, g[k]])) as Personal
@@ -50,7 +60,7 @@ export const createMatch = (trainers: Trainer[], mode: MatchMode, seed: number):
     g.player.x = mode === 'coop' ? i * 24 : (i % 2 ? 120 : -120)
     g.player.y = mode === 'coop' ? 0 : (i < 2 ? -90 : 90)
     g.player.shiny = trainer.shiny; g.player.luckyShiny = false
-    return { trainer, state: capture(g), revive: 0, connected: true }
+    return { trainer, state: capture(g), revive: 0, revivals: 0, connected: true }
   })
   const m: Match = { game, members, mode, paused: false, result: null, tick: 0, scaled: new Set(), proxies: new Map() }
   selectMember(m, trainers[0]!.id)
@@ -234,7 +244,11 @@ export const stepMatch = (m: Match, inputs: Record<string, StepInput>, commands:
       if (!p.connected || p.state.player.hp > 0) continue
       const close = m.members.some((other) => alive(other) && distance2(p.state.player, other.state.player) < dm.sq(40))
       p.revive = close ? p.revive + dt : 0
-      if (p.revive >= 5) { p.state.player.hp = p.state.player.stats.maxHp * 0.4; p.state.player.iframes = 2; p.state.phase = 'playing'; p.revive = 0 }
+      if (p.revive >= REVIVE_SECONDS) {
+        const rescuer = m.members.filter((other) => alive(other) && other !== p).sort((a, b) => distance2(a.state.player, p.state.player) - distance2(b.state.player, p.state.player))[0]
+        if (rescuer) rescuer.revivals++
+        p.state.player.hp = p.state.player.stats.maxHp * 0.4; p.state.player.iframes = 2; p.state.phase = 'playing'; p.revive = 0
+      }
     }
   }
   for (const p of live) asMember(m, p, (g) => { if (g.phase === 'playing' && g.player.hp > 0) advancePhase(g) })

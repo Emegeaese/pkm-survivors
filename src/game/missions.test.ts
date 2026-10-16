@@ -30,10 +30,12 @@ describe('mission draw', () => {
     expect(sets.size).toBeGreaterThan(20)
   })
 
-  it('draws one mission per template, three a day and two a week', () => {
+  it('draws the original missions and always adds cooperative and versus ticket goals', () => {
     const daily = drawMissions('daily', at(2026, 10, 13))
-    expect(daily).toHaveLength(MISSION_SLOTS.daily)
-    expect(drawMissions('weekly', at(2026, 10, 13))).toHaveLength(MISSION_SLOTS.weekly)
+    expect(daily.filter((m) => !m.tickets)).toHaveLength(MISSION_SLOTS.daily)
+    expect(daily.filter((m) => m.tickets)).toHaveLength(4)
+    expect(drawMissions('weekly', at(2026, 10, 13)).filter((m) => !m.tickets)).toHaveLength(MISSION_SLOTS.weekly)
+    expect(drawMissions('weekly', at(2026, 10, 13)).filter((m) => m.tickets)).toHaveLength(2)
     expect(new Set(daily.map((m) => m.goal.kind)).size).toBe(daily.length)
   })
 
@@ -54,6 +56,28 @@ describe('mission draw', () => {
 })
 
 describe('mission progress', () => {
+  it('pays multiplayer mission tickets once, keeps modes separate and rejects quick versus farming', () => {
+    const date = at(2026, 10, 16)
+    const coop = summary({ time: 300, online: { mode: 'coop', finished: true, won: false, revivals: 1 } })
+    const first = recordRun(EMPTY_SAVE, coop, null, date)
+    expect(first.completed.filter((m) => m.tickets).map((m) => m.goal.kind)).toEqual(['coopMinutes', 'coopRevivals'])
+    expect(first.save.gacha.earned - EMPTY_SAVE.gacha.earned).toBe(6) // 2 for time, 4 for missions.
+    const repeated = recordRun(first.save, coop, coop, date)
+    expect(repeated.save.gacha.earned).toBe(first.save.gacha.earned)
+    expect(repeated.save.achievements.lifetime.coopRevivals).toBe(1)
+    expect(first.save.achievements.unlocked).toContain('coopFirst')
+    const quick = summary({ time: 10, online: { mode: 'versus', finished: true, won: true, revivals: 0 } })
+    const rejected = recordRun(first.save, quick, null, date)
+    expect(rejected.completed.filter((m) => m.tickets)).toHaveLength(0)
+    expect(rejected.save.achievements.lifetime.versusRuns).toBe(0)
+    expect(rejected.save.gacha.earned).toBe(first.save.gacha.earned)
+    const duel = summary({ time: 65, online: { mode: 'versus', finished: true, won: true, revivals: 0 } })
+    const won = recordRun(rejected.save, duel, null, date)
+    expect(won.save.gacha.earned - rejected.save.gacha.earned).toBe(5) // Participation, victory, daily win mission.
+    expect(won.save.achievements.unlocked).toContain('versusFirst')
+    expect(won.save.achievements.lifetime.coopRuns).toBe(1)
+    expect(won.save.achievements.lifetime.versusWins).toBe(1)
+  })
   it('adds runs up and pays a mission once, when it completes', () => {
     const { date, mission } = dayWith('kills')
     const first = recordMissions(NO_MISSIONS, summary({ kills: mission.target - 10 }), null, date)

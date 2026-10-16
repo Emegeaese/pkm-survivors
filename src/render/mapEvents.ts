@@ -53,7 +53,7 @@ const BUFF_COLORS: Record<BuffId, string> = { xAttack: '#f85838', xSpeed: '#58a0
 /* ---------------- Ground ---------------- */
 
 /** Pixel arc of `k` (0..1) of a circle, clockwise from the top: 2 px of `color` with a dark outer edge. */
-const progressArc = (ctx: Ctx, x: number, y: number, r: number, k: number, color: string) => {
+export const progressArc = (ctx: Ctx, x: number, y: number, r: number, k: number, color: string) => {
   const steps = Math.ceil(r * TAU * 1.5)
   for (let i = 0; i <= steps * k; i++) {
     const a = -Math.PI / 2 + (i / steps) * TAU

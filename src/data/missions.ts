@@ -10,6 +10,7 @@ import type { PokeType } from './types'
  * `game/missions.ts`). `hatches` counts eggs hatched, outside runs.
  */
 export type MissionGoal =
+  | { kind: 'coopRuns' | 'coopWins' | 'coopMinutes' | 'coopRevivals' | 'versusRuns' | 'versusWins' }
   | { kind: 'kills' }
   | { kind: 'typeKills'; type: PokeType }
   | { kind: 'weatherKills'; weather: Exclude<WeatherId, 'clear'> }

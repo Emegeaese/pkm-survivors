@@ -57,8 +57,8 @@ const missionRow = (m: MissionStatus, opts: { gained?: number; fresh?: boolean }
     h(
       'span',
       { class: 'mission-reward' },
-      m.done ? '✓' : h('img', { src: coinIcon(0), alt: '' }),
-      m.done ? '' : formatNumber(m.reward),
+      m.done ? '✓' : m.tickets ? '🎟' : h('img', { src: coinIcon(0), alt: '' }),
+      m.done ? '' : formatNumber(m.tickets ?? m.reward),
       !m.done && m.egg && h('img', { src: eggIcon(m.egg), alt: t().eggs.tiers[m.egg], title: t().missions.rewardEgg(t().eggs.tiers[m.egg]) }),
       !m.done && m.item && h('img', { src: bagIcon(m.item), alt: BAG_ITEMS[m.item].name, title: t().missions.rewardItem(BAG_ITEMS[m.item].name) }),
     ),

@@ -1,7 +1,7 @@
 import type { Input } from '../engine/input'
 import { PLAYABLE, PLAYABLE_IDS, playableDex } from '../data/hatchlings'
 import { ownsPokemon, ownsShiny } from '../game/gacha'
-import { createMatch, matchHash, NETWORK_VERSION, selectMember, stepMatch, versusRadius, type Match, type MatchMode, type Trainer } from '../game/multiplayer'
+import { createMatch, matchHash, NETWORK_VERSION, REVIVE_SECONDS, selectMember, spectatorTarget, stepMatch, versusRadius, type Match, type MatchMode, type Trainer } from '../game/multiplayer'
 import { toSteps } from '../game/eggs'
 import type { RunSummary } from '../game/tally'
 import { runEarnings } from '../game/meta'
@@ -9,11 +9,15 @@ import { recordRun, mergeDex } from '../game/dex'
 import { summarizeRun } from '../game/tally'
 import { rosterSchedule } from '../game/roster'
 import { render } from '../render/draw'
+import { progressArc } from '../render/mapEvents'
 import { drawJoystick } from '../render/joystick'
 import { drawPokemon, loadAll, preloadShinies, sprites, streamSpecies } from '../render/sprites'
 import { playSfx, unlockAudio } from '../engine/audio'
 import { accountState, accountUserId } from '../account'
 import { accountScreen } from './account'
+import { friendsScreen } from './friends'
+import { socialText } from '../i18n/social'
+import { publishSocialStats } from '../firebaseSocial'
 import { createFirebaseRoomConnection, type RoomConnection } from '../network/firebaseRooms'
 import { firebaseText } from '../i18n/firebase'
 import { startTeamRanking, finishTeamRanking } from '../firebaseRanking'
@@ -49,10 +53,17 @@ export const multiplayerScreen = (root: HTMLElement, input: Input, ctx: CanvasRe
   let ranking: ReturnType<typeof startTeamRanking> | null = null
   let disposed = false, paid = false, ended = false, victoryShown = false, sequence = 0, sendAt = 0, timeout: ReturnType<typeof setTimeout> | null = null
   let paidCoins = 0, paidSummary: RunSummary | null = null, paidSteps = 0, paidEggs = 0
+  let paidTickets = 0
   let special = false, mega = false, lunge = false
   let overlayKey: unknown = null
+  let watching: string | null = null
+  const watchName = h('span')
+  const cycleWatch = (direction: number) => { if (match) watching = spectatorTarget(match, self, watching, direction)?.trainer.id ?? null }
+  const spectator = h('div', { class: 'room-spectator box hidden' },
+    h('button', { class: 'btn', 'aria-label': m.previousPlayer, onclick: () => cycleWatch(-1) }, '◀'),
+    watchName, h('button', { class: 'btn', 'aria-label': m.nextPlayer, onclick: () => cycleWatch(1) }, '▶'))
   const team = h('div', { class: 'room-team box hidden' }), notice = h('p', { class: 'room-notice hidden', role: 'status' })
-  root.append(team, notice)
+  root.append(team, notice, spectator)
   const send = (data: object) => { if (ws?.readyState === 1) ws.send(JSON.stringify(data)) }
   const disconnect = () => { const old = ws; ws = null; old?.close(); if (timeout) clearTimeout(timeout); timeout = null }
   const selected = () => PLAYABLE_IDS.find((id) => id === pokemon.value) ?? 'charmander'
@@ -60,6 +71,9 @@ export const multiplayerScreen = (root: HTMLElement, input: Input, ctx: CanvasRe
   pokemon.onchange = refreshShiny; refreshShiny()
   const finish = (interrupted = false) => {
     if (!match || (paid && match.mode === 'versus')) return
+    const beforeTickets = loadSave().gacha.earned
+    const local = match.members.find((p) => p.trainer.id === self)!
+    const online = { mode: match.mode, finished: paidSummary?.online?.finished === true || (!interrupted && match.result !== null), won: paidSummary?.online?.won === true || match.result === 'victory' || match.result === self, revivals: local.revivals }
     if (match.mode === 'coop') {
       const g = selectMember(match, self)
       const phase = g.phase
@@ -71,12 +85,16 @@ export const multiplayerScreen = (root: HTMLElement, input: Input, ctx: CanvasRe
       bankEggs(Math.max(0, steps - paidSteps), g.eggs.found.slice(paidEggs).map((e) => ({ tier: e.tier, steps: Math.max(0, steps - toSteps(e.at)) })))
       paidSteps = steps; paidEggs = g.eggs.found.length
       const summary = summarizeRun(g)
+      summary.online = online
       recordRunProgress(summary, paidSummary, 0); paidSummary = summary
       g.phase = phase
     } else if (!interrupted && match.result && match.game.time >= 60) {
       // A full versus match pays participation; immediate forfeits cannot farm tickets.
-      updateSave((s) => ({ ...s, gacha: { ...s.gacha, earned: s.gacha.earned + 1 + (match!.result === self ? 2 : 0) } }))
+      const summary = { ...summarizeRun(selectMember(match, self)), victory: false, online }
+      recordRunProgress(summary, paidSummary, 0); paidSummary = summary
     }
+    paidTickets += Math.max(0, loadSave().gacha.earned - beforeTickets)
+    void publishSocialStats().catch(() => {})
     paid = true
     if (ranking && (match.result || (match.mode === 'coop' && match.game.time >= 60))) {
       const g = selectMember(match, self), result = runResult(g, __GAME_VERSION__)
@@ -91,8 +109,8 @@ export const multiplayerScreen = (root: HTMLElement, input: Input, ctx: CanvasRe
     ended = true
     finish(interrupted)
     overlay?.dispose(); overlay = null; hud?.dispose(); hud = null
-    notice.classList.add('hidden'); team.classList.add('hidden')
-    panel.replaceChildren(h('h1', {}, m.results), h('p', {}, message), h('button', { class: 'btn', onclick: () => later(back) }, m.again))
+    notice.classList.add('hidden'); team.classList.add('hidden'); spectator.classList.add('hidden')
+    panel.replaceChildren(h('h1', {}, m.results), h('p', {}, message), h('p', {}, `🎟 ${m.reward}: ${paidTickets}`), h('button', { class: 'btn', onclick: () => later(back) }, m.again))
     panel.classList.remove('hidden'); el.classList.remove('room-playing')
     send({ type: 'finish' })
   }
@@ -104,6 +122,9 @@ export const multiplayerScreen = (root: HTMLElement, input: Input, ctx: CanvasRe
   const command = (kind: string, index?: number) => send({ type: 'command', kind, index })
   const leave = () => { finish(true); disconnect(); later(back) }
   const showJoin = () => joinActions.replaceChildren(h('button', { class: 'btn', onclick: () => connect('create') }, m.create), h('button', { class: 'btn', onclick: () => connect('join') }, m.join),
+    ...(accountUserId() ? [h('button', { class: 'btn', onclick: () => {
+      panel.classList.add('hidden'); authScreen = friendsScreen(root, input, () => { authScreen = null; panel.classList.remove('hidden'); showJoin() })
+    } }, socialText().friends)] : []),
     ...(!accountUserId() ? [h('button', { class: 'btn', onclick: () => {
       panel.classList.add('hidden'); authScreen = accountScreen(root, input, () => { authScreen = null; panel.classList.remove('hidden'); showJoin() })
     } }, f.login)] : []), h('button', { class: 'btn', onclick: leave }, m.back))
@@ -170,13 +191,13 @@ export const multiplayerScreen = (root: HTMLElement, input: Input, ctx: CanvasRe
           // Simulation events are presentation-only and must never accumulate.
           if (match.game.events.some((e) => e.kind === 'hit')) playSfx('hit')
           match.game.events.length = 0
-          send({ type: 'ack', tick: sequence, ...(sequence % 90 === 0 ? { hash: matchHash(match) } : {}) })
+          if (sequence % 90 === 0) send({ type: 'ack', tick: sequence, hash: matchHash(match) })
           if (match.result) {
             const winner = match.members.find((p) => p.trainer.id === match!.result)
             if (match.result === 'victory' && match.mode === 'coop') {
               if (!victoryShown) {
                 victoryShown = true; finish(); overlay?.dispose(); overlay = null; overlayKey = null
-                panel.replaceChildren(h('h1', {}, m.teamWin), ...(lobby?.host === self ? [h('button', { class: 'btn', onclick: () => command('endless') }, tEndless())] : [h('p', {}, m.waiting)]), h('button', { class: 'btn', onclick: leave }, m.leave))
+                panel.replaceChildren(h('h1', {}, m.teamWin), h('p', {}, `🎟 ${m.reward}: ${paidTickets}`), ...(lobby?.host === self ? [h('button', { class: 'btn', onclick: () => command('endless') }, tEndless())] : [h('p', {}, m.waiting)]), h('button', { class: 'btn', onclick: leave }, m.leave))
                 panel.classList.remove('hidden'); el.classList.remove('room-playing')
               }
             } else showEnd(match.mode === 'coop' ? m.defeat : winner ? `${m.winner}: ${winner.trainer.name}` : m.draw)
@@ -189,6 +210,8 @@ export const multiplayerScreen = (root: HTMLElement, input: Input, ctx: CanvasRe
   }
   const off = input.onKey((key) => {
     if (!match || ended) return
+    const fallen = match.members.find((p) => p.trainer.id === self)!.state.player.hp <= 0
+    if (fallen && (key === 'KeyQ' || key === 'KeyE')) { cycleWatch(key === 'KeyQ' ? -1 : 1); return }
     if (key === 'Space') special = true
     if (key === 'KeyE') mega = true
     if (key === 'ShiftLeft' || key === 'ShiftRight') lunge = true
@@ -201,10 +224,16 @@ export const multiplayerScreen = (root: HTMLElement, input: Input, ctx: CanvasRe
       send({ type: 'input', move: document.hidden ? { x: 0, y: 0 } : input.readMove(), special, mega, lunge }); special = mega = lunge = false
     }
     const member = match.members.find((p) => p.trainer.id === self)!
+    const target = spectatorTarget(match, self, watching)
+    watching = target?.trainer.id ?? null
+    const spectating = member.state.player.hp <= 0 && target !== undefined && target !== member
+    spectator.classList.toggle('hidden', !spectating)
+    watchName.textContent = spectating ? `${m.spectating}: ${target.trainer.name}` : ''
     const g = selectMember(match, self)
     // Render in the local viewport, then restore the canonical simulation dimensions.
     const oldView = g.view, oldCamera = g.camera, attacks = g.attacks
-    g.view = view; g.camera = { x: g.player.x - view.w / 2, y: g.player.y - 10 - view.h / 2 }
+    const focus = target?.state.player ?? g.player
+    g.view = view; g.camera = { x: focus.x - view.w / 2, y: focus.y - 10 - view.h / 2 }
     g.attacks = match.members.flatMap((p) => p.state.attacks)
     render(ctx, g, time, settings())
     for (const other of match.members) if (other !== member) {
@@ -213,6 +242,13 @@ export const multiplayerScreen = (root: HTMLElement, input: Input, ctx: CanvasRe
       drawPokemon(ctx, sprites(PLAYABLE[other.state.starter].line[p.stage]!.dex, p.shiny), p.moving ? 'Walk' : 'Idle', p.dir, p.animTime, x, y)
       ctx.fillStyle = match.mode === 'coop' ? '#80ffad' : '#ff8090'; ctx.font = '7px monospace'; ctx.textAlign = 'center'; ctx.fillText(other.trainer.name, x, y - 27)
       ctx.fillRect(x - 10, y - 23, Math.max(0, 20 * p.hp / p.stats.maxHp), 2); ctx.restore()
+    }
+    if (match.mode === 'coop') for (const fallen of match.members) {
+      if (!fallen.connected || fallen.state.player.hp > 0 || fallen.revive <= 0) continue
+      const p = fallen.state.player, x = Math.round(p.x - g.camera.x), y = Math.round(p.y - 4 - g.camera.y)
+      progressArc(ctx, x, y, 19, Math.min(1, fallen.revive / REVIVE_SECONDS), '#80ffad')
+      ctx.save(); ctx.fillStyle = '#ffffff'; ctx.font = '7px monospace'; ctx.textAlign = 'center'
+      ctx.fillText(`${Math.floor(fallen.revive / REVIVE_SECONDS * 100)}%`, x, y + 29); ctx.restore()
     }
     if (match.mode === 'versus') {
       ctx.strokeStyle = '#ff6070'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(-g.camera.x, -g.camera.y, versusRadius(g.time), 0, Math.PI * 2); ctx.stroke()
@@ -240,7 +276,7 @@ export const multiplayerScreen = (root: HTMLElement, input: Input, ctx: CanvasRe
   showJoin()
   const onVisibility = () => { if (document.hidden) send({ type: 'input', move: { x: 0, y: 0 } }) }
   document.addEventListener('visibilitychange', onVisibility)
-  return { el, tick, playing: () => match && !ended ? selectMember(match, self) : null, dispose: () => { disposed = true; finish(true); disconnect(); off(); document.removeEventListener('visibilitychange', onVisibility); authScreen?.dispose(); overlay?.dispose(); hud?.dispose(); team.remove(); notice.remove(); el.remove() } }
+  return { el, tick, debug: () => match, playing: () => match && !ended ? selectMember(match, self) : null, dispose: () => { disposed = true; finish(true); disconnect(); off(); document.removeEventListener('visibilitychange', onVisibility); authScreen?.dispose(); overlay?.dispose(); hud?.dispose(); team.remove(); notice.remove(); spectator.remove(); el.remove() } }
 }
 
 const canvasScale = (ctx: CanvasRenderingContext2D, view: { w: number }) => ctx.canvas.getBoundingClientRect().width / view.w

@@ -219,6 +219,7 @@ export type ProfileRun = { starter: PlayableId; stage: number; difficulty: Diffi
 
 /** What `/profiles/:handle` answers. `followed`: the asking player follows them; `self`: it's the asking player. */
 export type PublicProfile = ProfileName & {
+  online?: Record<'coopRuns' | 'coopWins' | 'coopMinutes' | 'coopRevivals' | 'versusRuns' | 'versusWins', number>
   title: TitleId | null
   dex: { seen: number; caught: number }
   records: Partial<Record<Difficulty, ProfileRun>>

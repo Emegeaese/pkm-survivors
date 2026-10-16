@@ -187,10 +187,15 @@ export const parseSaveData = (json: unknown): Save => {
   const ranks = isRecord(data.ranks) ? data.ranks : {}
   const achievements = parseAchievements(data.achievements)
   const titles = parseGiftTitles(data.titles)
+  const gacha = parseGacha(data.gacha), shinyStarters = parseShinyStarters(data.shinyStarters)
+  // Preserve old lucky-roll unlocks, while received copies remain owned by the trade ledger.
+  for (const id of Object.keys(shinyStarters) as (keyof typeof shinyStarters)[]) {
+    if (!gacha.shiny[id] && !gacha.transfers[`${id}_s`]?.received) gacha.nativeShiny[id] = true
+  }
   return {
     version: SAVE_VERSION,
     wallet: wholeNumber(data.wallet),
-    gacha: parseGacha(data.gacha),
+    gacha,
     ranks: Object.fromEntries(UPGRADE_IDS.map((id) => [id, wholeNumber(ranks[id], UPGRADES[id].maxRank)])) as Record<UpgradeId, number>,
     dex: parseDex(data.dex),
     eggs: parseEggs(data.eggs),
@@ -199,7 +204,7 @@ export const parseSaveData = (json: unknown): Save => {
     achievements,
     title: parseTitle(data.title, achievements.unlocked, titles),
     difficulty: parseDifficulty(data.difficulty),
-    shinyStarters: parseShinyStarters(data.shinyStarters),
+    shinyStarters,
     bag: parseBag(data.bag),
     counter: parseCounter(data.counter),
     style: parseStyle(data.style),
@@ -236,9 +241,9 @@ export const coinTier = (value: number) => (value >= COIN_VALUES[2] ? 2 : value 
  * (tougher ones more often), shinies always pay out and bosses shower ₽.
  */
 export const coinDrops = (rng: Rng, enemy: { boss: boolean; xp: number; shiny?: boolean }): number[] => {
-  if (enemy.boss) return [250, 50, 50, 50, 50, 50]
-  if (enemy.shiny) return [50, 50, 50]
-  if (!chance(rng, 0.025 + enemy.xp * 0.01)) return []
+  if (enemy.boss) return [50, 50, 50, 50]
+  if (enemy.shiny) return [50, 10, 10]
+  if (!chance(rng, Math.min(0.045, 0.018 + enemy.xp * 0.002))) return []
   return [chance(rng, 0.1) ? 50 : 10]
 }
 
@@ -250,7 +255,7 @@ export const coinDrops = (rng: Rng, enemy: { boss: boolean; xp: number; shiny?: 
 export const runBonus = (run: { time: number; kills: number; victory: boolean; greed: number; reaperDefeats?: number }) => {
   const endlessMinutes = run.victory ? overtime(run.time) / 60 : 0
   const reaper = (run.reaperDefeats ?? 0) * ENDLESS.reaperBonus
-  return Math.round(((run.time / 60) * 30 + endlessMinutes * 60 + run.kills * 0.25 + (run.victory ? 1000 : 0) + reaper) * run.greed)
+  return Math.round(((run.time / 60) * 20 + endlessMinutes * 40 + run.kills * 0.15 + (run.victory ? 600 : 0) + reaper) * Math.min(2.5, Math.max(0, run.greed)))
 }
 
 /** Mewtwo fell this run: on the victory screen, or still going in endless mode. */
@@ -298,7 +303,8 @@ const settle = (save: Save, m: Progress, a: Medals, eggRoom: number) => {
   const coins = m.completed.reduce((sum, mission) => sum + mission.reward, 0) + a.unlocked.reduce((sum, id) => sum + MEDAL_REWARD[ACHIEVEMENTS[id].medal], 0)
   const items = m.completed.flatMap((mission): BagItem[] => (mission.item ? [mission.item] : []))
   const bag = items.reduce((b, id) => addToBag(b, id), save.bag)
-  const paid = payEggs({ ...save, wallet: save.wallet + coins, bag, missions: m.missions, achievements: a.achievements }, rewardEggs(m.completed, a.unlocked), eggRoom)
+  const ticketReward = m.completed.reduce((sum, mission) => sum + (mission.tickets ?? 0), 0)
+  const paid = payEggs({ ...save, gacha: { ...save.gacha, earned: save.gacha.earned + ticketReward }, wallet: save.wallet + coins, bag, missions: m.missions, achievements: a.achievements }, rewardEggs(m.completed, a.unlocked), eggRoom)
   return { save: paid.save, completed: m.completed, unlocked: a.unlocked, reward: coins + paid.refund, eggs: paid.eggs, items }
 }
 

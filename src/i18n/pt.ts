@@ -1,3 +1,4 @@
+import { onlineGoals, onlineNames } from './online'
 import type { AchievementId, AchievementStat, GiftTitleId, TitleId } from '../data/achievements'
 import type { BiomeId } from '../data/biomes'
 import type { PokeType } from '../data/types'
@@ -699,7 +700,7 @@ export const pt = {
     rewardItem: (name: string) => `+ ${name} (vai para a bolsa)`,
     reportItems: (n: number) => (n === 1 ? '+1 item na bolsa' : `+${n} itens na bolsa`),
     toastItem: (n: number) => (n === 1 ? 'Um *item* foi para a bolsa!' : `${n} *itens* foram para a bolsa!`),
-    goals: {
+    goals: { ...onlineGoals.pt,
       kills: (n: string) => `Derrote ${n} Pokémon`,
       typeKills: (n: string, type: string) => `Derrote ${n} Pokémon do tipo ${type}`,
       weatherKills: {
@@ -750,7 +751,7 @@ export const pt = {
     /** Titles that come as a Mystery Gift, with how they were earned. */
     giftTitles: { ambassador: 'Trouxe 3 amigos para o jogo' } satisfies Record<GiftTitleId, string>,
     newMedals: 'Novas medalhas',
-    names: {
+    names: { ...onlineNames.pt,
       firstRun: 'Primeiros passos',
       regular: 'Freguês',
       veteran: 'Veterano',
@@ -823,7 +824,7 @@ export const pt = {
       reaperDown: 'Lenda Viva',
       ambassador: 'Embaixador(a)',
     } satisfies Record<TitleId, string>,
-    goals: {
+    goals: { ...onlineGoals.pt,
       runs: (n: string) => (n === '1' ? 'Jogue uma partida' : `Jogue ${n} partidas`),
       kills: (n: string) => `Derrote ${n} Pokémon no total`,
       bestMinutes: (n: string) => `Sobreviva ${n} min numa partida`,

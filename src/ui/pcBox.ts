@@ -62,8 +62,13 @@ export const pcBoxScreen = (root: HTMLElement, input: Input, actions: PcActions,
   let footerIndex = 0
   /** The Trainer Card's preview, open over the box. */
   let sub: Screen | null = null
-
-  const close = () => (playSfx('select'), later(actions.onClose))
+  let disposed = false, openingCard = false, closing = false
+  const close = () => {
+    if (disposed || closing) return
+    closing = true
+    playSfx('select')
+    later(() => { if (!disposed) { dispose(); actions.onClose() } })
+  }
 
   const label = h('div', { class: 'pc-box-name' })
   const prev = h('button', { class: 'pc-arrow', 'aria-label': m.prev, onclick: () => (setZone('nav'), switchBox(-1)) }, '◀')
@@ -88,11 +93,15 @@ export const pcBoxScreen = (root: HTMLElement, input: Input, actions: PcActions,
 
   const back = h('button', { class: 'btn', onclick: close }, m.back)
   const openCard = () => {
-    if (sub) return
+    if (sub || openingCard || disposed || closing) return
+    openingCard = true
     playSfx('select')
     later(() => {
+      openingCard = false
+      if (disposed || closing) return
       el.classList.add('hidden')
       sub = actions.trainerCard(() => {
+        sub?.dispose()
         sub = null
         el.classList.remove('hidden')
       })
@@ -234,6 +243,8 @@ export const pcBoxScreen = (root: HTMLElement, input: Input, actions: PcActions,
   syncFocus()
 
   const tick = (time: number) => {
+    if (disposed) return
+    if (sub) return sub.tick?.(time)
     for (let i = 0; i < BOX_SLOTS; i++) {
       const e = at(i)
       if (!e) continue
@@ -246,5 +257,10 @@ export const pcBoxScreen = (root: HTMLElement, input: Input, actions: PcActions,
     }
   }
 
-  return { el, tick, dim: 0.5, dispose: () => (sub?.dispose(), off(), el.remove()) }
+  const dispose = () => {
+    if (disposed) return
+    disposed = true
+    sub?.dispose(); sub = null; off(); el.remove()
+  }
+  return { el, tick, dim: 0.5, dispose }
 }

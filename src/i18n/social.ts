@@ -1,0 +1,29 @@
+import { locale } from './index'
+const es = {
+  friends: 'Amigos', handle: 'Apodo del entrenador (@usuario)', add: 'Añadir amigo', sent: 'Solicitud enviada', missing: 'No se encontró ese entrenador o es tu propia cuenta.',
+  accept: 'Aceptar', reject: 'Rechazar', cancel: 'Cancelar', remove: 'Quitar amigo', incoming: 'Solicitud recibida', pending: 'Esperando respuesta', empty: 'Aún no tienes amigos ni solicitudes.',
+  profile: 'Ver estadísticas', trade: 'Intercambiar Pokémon', back: 'Volver', error: 'No se pudo completar la operación. Comprueba la conexión y vuelve a intentarlo.', loading: 'Cargando…',
+  myHandle: 'Tu apodo', send: 'Ofrecer Pokémon', confirm: 'Confirmar intercambio', waiting: 'Esperando la confirmación de tu amigo', done: '¡Intercambio completado!', choose: 'Elige tu Pokémon',
+  theirOffer: 'Recibes', myOffer: 'Entregas', noOffer: 'Sin oferta', inventory: 'Copias disponibles del gacha', history: 'Intercambios recientes', cancelled: 'Intercambio cancelado',
+  tradeInfo: 'Los intercambios transfieren copias obtenidas en el gacha, incluidas las shiny. Ambos deben confirmar la oferta actual. Las copias se transfieren juntas al completarse.',
+  coopRuns: 'Cooperativos completados', coopWins: 'Victorias cooperativas', coopMinutes: 'Minutos en cooperativo', coopRevivals: 'Compañeros reanimados', versusRuns: 'Versus completados', versusWins: 'Victorias versus',
+}
+const en: typeof es = {
+  friends: 'Friends', handle: 'Trainer handle (@username)', add: 'Add friend', sent: 'Request sent', missing: 'Trainer not found, or this is your own account.',
+  accept: 'Accept', reject: 'Decline', cancel: 'Cancel', remove: 'Remove friend', incoming: 'Incoming request', pending: 'Awaiting response', empty: 'No friends or requests yet.',
+  profile: 'View statistics', trade: 'Trade Pokémon', back: 'Back', error: 'Could not complete this action. Check your connection and try again.', loading: 'Loading…',
+  myHandle: 'Your handle', send: 'Offer Pokémon', confirm: 'Confirm trade', waiting: 'Waiting for your friend to confirm', done: 'Trade completed!', choose: 'Choose your Pokémon',
+  theirOffer: 'You receive', myOffer: 'You send', noOffer: 'No offer', inventory: 'Available gacha copies', history: 'Recent trades', cancelled: 'Trade cancelled',
+  tradeInfo: 'Trade copies obtained from the gacha, including shinies. Both trainers must confirm the current offer. Copies transfer together when the trade completes.',
+  coopRuns: 'Co-op matches completed', coopWins: 'Co-op wins', coopMinutes: 'Co-op minutes', coopRevivals: 'Teammates revived', versusRuns: 'Versus matches completed', versusWins: 'Versus wins',
+}
+const pt: typeof es = {
+  friends: 'Amigos', handle: 'Apelido do treinador (@usuário)', add: 'Adicionar amigo', sent: 'Pedido enviado', missing: 'Treinador não encontrado ou esta é sua conta.',
+  accept: 'Aceitar', reject: 'Recusar', cancel: 'Cancelar', remove: 'Remover amigo', incoming: 'Pedido recebido', pending: 'Aguardando resposta', empty: 'Sem amigos ou pedidos ainda.',
+  profile: 'Ver estatísticas', trade: 'Trocar Pokémon', back: 'Voltar', error: 'Não foi possível concluir. Confira a conexão e tente novamente.', loading: 'Carregando…',
+  myHandle: 'Seu apelido', send: 'Oferecer Pokémon', confirm: 'Confirmar troca', waiting: 'Aguardando confirmação do seu amigo', done: 'Troca concluída!', choose: 'Escolha seu Pokémon',
+  theirOffer: 'Você recebe', myOffer: 'Você entrega', noOffer: 'Sem oferta', inventory: 'Cópias disponíveis do gacha', history: 'Trocas recentes', cancelled: 'Troca cancelada',
+  tradeInfo: 'Troque cópias obtidas no gacha, incluindo shiny. Ambos confirmam a oferta atual. As cópias são transferidas juntas ao concluir.',
+  coopRuns: 'Cooperativos concluídos', coopWins: 'Vitórias cooperativas', coopMinutes: 'Minutos cooperativos', coopRevivals: 'Aliados revividos', versusRuns: 'Versus concluídos', versusWins: 'Vitórias versus',
+}
+export const socialText = () => locale() === 'es' ? es : locale() === 'pt' ? pt : en

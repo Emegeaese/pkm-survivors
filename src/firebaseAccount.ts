@@ -15,6 +15,7 @@ export type ProfileSaved = { ok: true } | { ok: false; reason: 'taken'; suggesti
 export type GiftArrival = { gift: Gift; hatch: Hatch | null }
 let state: AccountState = { kind: 'guest' }, current: User | null = null, started = false, switching = false, profileVersion = 0
 let syncing: Promise<void> | null = null, syncAgain = false, timer: ReturnType<typeof setTimeout> | null = null
+let stopTradeInventory: (() => void) | null = null
 const listeners = new Set<(s: AccountState) => void>(), giftListeners = new Set<(g: readonly GiftArrival[], n: number) => void>()
 const read = (key: string) => { try { return localStorage.getItem(key) } catch { return null } }
 const store = (key: string, value: string | null) => { try { if (value === null) localStorage.removeItem(key); else localStorage.setItem(key, value) } catch { /* Local play remains usable. */ } }
@@ -86,9 +87,18 @@ export const syncSave = async (): Promise<void> => {
   syncing = syncOnce().finally(() => { syncing = null; if (syncAgain) { syncAgain = false; scheduleSync() } })
   return syncing
 }
+/** Finish an older push, then explicitly push the current inventory before trading. */
+export const flushSave = async () => {
+  const uid = current?.uid
+  if (!uid || !navigator.onLine) throw new Error('offline')
+  if (syncing) await syncing
+  await syncSave()
+  if (current?.uid !== uid || state.kind !== 'signedIn' || state.sync !== 'synced') throw new Error('offline')
+}
 const scheduleSync = () => { if (timer) clearTimeout(timer); if (current && !switching) timer = setTimeout(() => { void syncSave() }, 5000) }
 
 const sessionChanged = async (user: User | null) => {
+  stopTradeInventory?.(); stopTradeInventory = null
   const before = current?.uid ?? read('pkm:active-user')
   if (current) store(`pkm:save:${current.uid}`, JSON.stringify(loadSave()))
   switching = true; current = user
@@ -98,6 +108,9 @@ const sessionChanged = async (user: User | null) => {
   }
   store('pkm:active-user', user?.uid ?? null)
   switching = false
+  if (user) void import('./firebaseTrading').then((m) => m.watchTradeInventory(user.uid)).then((off) => {
+    if (current?.uid !== user.uid) off(); else stopTradeInventory = off
+  }).catch(() => {})
   if (!user) { emit({ kind: 'guest' }); return }
   const uid = user.uid, name = user.displayName || user.email?.split('@')[0] || 'Trainer', initialProfileVersion = profileVersion
   emit({ kind: 'signedIn', name, handle: undefined, sync: 'syncing' })

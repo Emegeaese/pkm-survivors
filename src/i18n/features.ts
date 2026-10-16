@@ -1,6 +1,7 @@
 import { locale } from './index'
 
 const en = {
+  spectating: 'Watching', previousPlayer: 'Previous player (Q)', nextPlayer: 'Next player (E)', skipAnimation: 'Skip animation',
   collection: 'Pokémon collection', search: 'Search name or Pokédex number', all: 'All', owned: 'Owned', locked: 'Unlock in the ticket gacha', play: 'Play', back: 'Back', shiny: 'Shiny', normal: 'Normal',
   gacha: 'Ticket gacha', friends: 'Play with friends', tickets: 'Tickets', bundles: '×10 tickets', pull: 'Draw ×1', ten: 'Draw ×10', bundle: 'Use ×10 ticket', new: 'NEW',
   gachaInfo: 'Earn 1 ticket every 2 minutes, 2 per boss and 5 for victory. Your first 10 tickets are free. Repeats give Poké Dollars. Shiny: 1% when shiny art exists.',
@@ -15,6 +16,7 @@ const en = {
   unavailable: 'That room is unavailable, full, already playing or running another game version.', copy: 'Copy invite', copied: 'Invite copied', connecting: 'Connecting…', rematch: 'Play again',
 }
 const pt: typeof en = {
+  spectating: 'Assistindo', previousPlayer: 'Jogador anterior (Q)', nextPlayer: 'Próximo jogador (E)', skipAnimation: 'Pular animação',
   collection: 'Coleção Pokémon', search: 'Buscar nome ou número da Pokédex', all: 'Todos', owned: 'Seus Pokémon', locked: 'Desbloqueie no gacha de tickets', play: 'Jogar', back: 'Voltar', shiny: 'Brilhante', normal: 'Normal',
   gacha: 'Gacha de tickets', friends: 'Jogar com amigos', tickets: 'Tickets', bundles: 'Tickets ×10', pull: 'Sortear ×1', ten: 'Sortear ×10', bundle: 'Usar ticket ×10', new: 'NOVO',
   gachaInfo: 'Ganhe 1 ticket a cada 2 minutos, 2 por chefe e 5 por vitória. Os primeiros 10 são grátis. Repetidos rendem Poké Dólares. Brilhante: 1% quando há arte.',
@@ -29,6 +31,7 @@ const pt: typeof en = {
   unavailable: 'Sala indisponível, cheia, em partida ou em outra versão do jogo.', copy: 'Copiar convite', copied: 'Convite copiado', connecting: 'Conectando…', rematch: 'Jogar de novo',
 }
 const es: typeof en = {
+  spectating: 'Viendo a', previousPlayer: 'Compañero anterior (Q)', nextPlayer: 'Siguiente compañero (E)', skipAnimation: 'Omitir animación',
   collection: 'Colección Pokémon', search: 'Buscar nombre o número de Pokédex', all: 'Todos', owned: 'Desbloqueados', locked: 'Desbloquear en el gacha', play: 'Jugar', back: 'Volver', shiny: 'Variocolor', normal: 'Normal',
   gacha: 'Gacha de tickets', friends: 'Jugar con amigos', tickets: 'Tickets', bundles: 'Tickets ×10', pull: 'Tirada ×1', ten: 'Tirada ×10', bundle: 'Usar ticket ×10', new: 'NUEVO',
   gachaInfo: 'Gana 1 ticket cada 2 minutos, 2 por jefe y 5 por victoria. Empiezas con 10 tickets gratis. Los repetidos dan Pokédólares. Variocolor: 1% cuando hay recursos disponibles.',

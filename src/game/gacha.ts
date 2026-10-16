@@ -19,18 +19,33 @@ export type Gacha = {
   earned: number; used: number; bundles: number; bundlesUsed: number
   owned: Partial<Record<PlayableId, number>>
   shiny: Partial<Record<PlayableId, true>>
+  shinyOwned: Partial<Record<PlayableId, number>>
+  nativeShiny: Partial<Record<PlayableId, true>>
+  transfers: Record<string, { sent: number; received: number }>
   banners: Record<string, { pulls: number; pity: number }>
 }
-export const EMPTY_GACHA: Gacha = { earned: 10, used: 0, bundles: 0, bundlesUsed: 0, owned: {}, shiny: {}, banners: {} }
+export const EMPTY_GACHA: Gacha = { earned: 10, used: 0, bundles: 0, bundlesUsed: 0, owned: {}, shiny: {}, shinyOwned: {}, nativeShiny: {}, transfers: {}, banners: {} }
 export const parseGacha = (raw: unknown): Gacha => {
-  if (!isRecord(raw)) return { ...EMPTY_GACHA, owned: {}, shiny: {}, banners: {} }
+  if (!isRecord(raw)) return { ...EMPTY_GACHA, owned: {}, shiny: {}, shinyOwned: {}, nativeShiny: {}, transfers: {}, banners: {} }
   const owned = isRecord(raw.owned) ? raw.owned : {}
   const shiny = isRecord(raw.shiny) ? raw.shiny : {}
   const banners = isRecord(raw.banners) ? raw.banners : {}
+  const shinyOwned = isRecord(raw.shinyOwned) ? raw.shinyOwned : {}
+  const native = isRecord(raw.nativeShiny) ? raw.nativeShiny : {}
+  const transfers = isRecord(raw.transfers) ? raw.transfers : {}
   return {
     earned: Math.max(10, wholeNumber(raw.earned)), used: wholeNumber(raw.used), bundles: wholeNumber(raw.bundles), bundlesUsed: wholeNumber(raw.bundlesUsed),
     owned: Object.fromEntries(PLAYABLE_IDS.flatMap((id) => wholeNumber(owned[id]) > 0 ? [[id, wholeNumber(owned[id])]] : [])),
     shiny: Object.fromEntries(PLAYABLE_IDS.flatMap((id) => shiny[id] === true && hasShinySprite(PLAYABLE[id].line[0].dex) ? [[id, true]] : [])),
+    nativeShiny: Object.fromEntries(PLAYABLE_IDS.flatMap((id) => native[id] === true ? [[id, true]] : [])),
+    shinyOwned: Object.fromEntries(PLAYABLE_IDS.flatMap((id) => {
+      const count = hasShinySprite(PLAYABLE[id].line[0].dex) ? Math.max(shiny[id] === true ? 1 : 0, wholeNumber(shinyOwned[id])) : 0
+      return count > 0 ? [[id, count]] : []
+    })),
+    transfers: Object.fromEntries(PLAYABLE_IDS.flatMap((id) => ['n', 's'].flatMap((variant) => {
+      const key = `${id}_${variant}`, value = transfers[key]
+      return isRecord(value) ? [[key, { sent: wholeNumber(value.sent), received: wholeNumber(value.received) }]] : []
+    }))),
     banners: Object.fromEntries(BANNERS.map((_, i) => {
       const b = banners[i + 1]
       return isRecord(b) ? [[i + 1, { pulls: wholeNumber(b.pulls), pity: wholeNumber(b.pity, PITY - 1) }]] : []
@@ -39,8 +54,22 @@ export const parseGacha = (raw: unknown): Gacha => {
 }
 export const tickets = (g: Gacha) => Math.max(0, g.earned - g.used)
 export const bundleTickets = (g: Gacha) => Math.max(0, g.bundles - g.bundlesUsed)
-export const ownsPokemon = (s: Save, id: PlayableId) => STARTING_POKEMON.includes(id) || (s.gacha.owned[id] ?? 0) > 0 || (isHatchling(id) && !!s.hatched[id])
-export const ownsShiny = (s: Save, id: PlayableId) => s.gacha.shiny[id] === true || id in s.shinyStarters || (isHatchling(id) && s.hatched[id]?.shiny === true)
+export const transferKey = (id: PlayableId, shiny: boolean) => `${id}_${shiny ? 's' : 'n'}`
+export const mintedCopies = (g: Gacha, id: PlayableId, shiny: boolean) => shiny
+  ? g.shinyOwned[id] ?? (g.shiny[id] ? 1 : 0)
+  : Math.max(0, (g.owned[id] ?? 0) - (g.shinyOwned[id] ?? (g.shiny[id] ? 1 : 0)))
+export const gachaCopies = (g: Gacha, id: PlayableId, shiny: boolean) => {
+  const transfers = g.transfers[transferKey(id, shiny)]
+  return Math.max(0, mintedCopies(g, id, shiny) + (transfers?.received ?? 0) - (transfers?.sent ?? 0))
+}
+export const ownsPokemon = (s: Save, id: PlayableId) => STARTING_POKEMON.includes(id) || gachaCopies(s.gacha, id, false) + gachaCopies(s.gacha, id, true) > 0 || (isHatchling(id) && !!s.hatched[id])
+export const ownsShiny = (s: Save, id: PlayableId) => {
+  if (s.gacha.nativeShiny[id] || (isHatchling(id) && s.hatched[id]?.shiny)) return true
+  const transfers = s.gacha.transfers[transferKey(id, true)]
+  const legacy = id in s.shinyStarters && !s.gacha.shiny[id] && !transfers?.received
+  const base = Math.max(mintedCopies(s.gacha, id, true), legacy ? 1 : 0)
+  return base + (transfers?.received ?? 0) - (transfers?.sent ?? 0) > 0
+}
 
 const enemyByDex = new Map((Object.values(ENEMIES) as EnemyDef[]).map((e) => [e.dex, e]))
 export const rarityOf = (id: PlayableId): Rarity => {
@@ -67,7 +96,7 @@ export const pullGacha = (save: Save, count: 1 | 10, gen: number, rng: Rng, bund
   if (bundle ? bundleTickets(save.gacha) < 1 : tickets(save.gacha) < count) return null
   const pool = bannerPool(gen)
   if (!pool.length) return null
-  const g: Gacha = { ...save.gacha, owned: { ...save.gacha.owned }, shiny: { ...save.gacha.shiny }, banners: { ...save.gacha.banners } }
+  const g: Gacha = { ...save.gacha, owned: { ...save.gacha.owned }, shiny: { ...save.gacha.shiny }, shinyOwned: { ...save.gacha.shinyOwned }, banners: { ...save.gacha.banners } }
   const state = { ...(g.banners[gen] ?? { pulls: 0, pity: 0 }) }
   const pulls: Pull[] = []
   let wallet = save.wallet
@@ -82,7 +111,7 @@ export const pullGacha = (save: Save, count: 1 | 10, gen: number, rng: Rng, bund
     const fresh = shiny ? !ownsShiny({ ...save, gacha: g }, id) : !ownsPokemon({ ...save, gacha: g }, id)
     const refund = fresh ? 0 : [0, 15, 30, 60, 120, 300][rarity]! * (shiny ? 3 : 1)
     g.owned[id] = (g.owned[id] ?? 0) + 1
-    if (shiny) { g.shiny[id] = true; shinyStarters[id] = true }
+    if (shiny) { g.shinyOwned[id] = (g.shinyOwned[id] ?? (g.shiny[id] ? 1 : 0)) + 1; g.shiny[id] = true; shinyStarters[id] = true }
     dex = markHatch(dex, PLAYABLE[id].line.map((s) => s.dex), shiny)
     wallet += refund
     state.pulls++; state.pity = rarity === 5 ? 0 : state.pity + 1
@@ -93,11 +122,16 @@ export const pullGacha = (save: Save, count: 1 | 10, gen: number, rng: Rng, bund
   return { save: { ...save, wallet, dex, shinyStarters, gacha: g }, pulls }
 }
 
-export const runTickets = (r: Pick<RunSummary, 'time' | 'bossKills' | 'victory'>) => Math.floor(r.time / 120) + r.bossKills * 2 + (r.victory ? 5 : 0)
+export const runTickets = (r: Pick<RunSummary, 'time' | 'bossKills' | 'victory' | 'online'>) => r.online?.mode === 'versus'
+  ? r.online.finished && r.time >= 60 ? 1 + (r.online.won ? 2 : 0) : 0
+  : Math.floor(r.time / 120) + r.bossKills * 2 + (r.victory ? 5 : 0)
 export const mergeGacha = (a: Gacha, b: Gacha): Gacha => ({
   earned: Math.max(a.earned, b.earned), used: Math.max(a.used, b.used), bundles: Math.max(a.bundles, b.bundles), bundlesUsed: Math.max(a.bundlesUsed, b.bundlesUsed),
   owned: Object.fromEntries(PLAYABLE_IDS.flatMap((id) => Math.max(a.owned[id] ?? 0, b.owned[id] ?? 0) > 0 ? [[id, Math.max(a.owned[id] ?? 0, b.owned[id] ?? 0)]] : [])),
   shiny: { ...a.shiny, ...b.shiny },
+  nativeShiny: { ...a.nativeShiny, ...b.nativeShiny },
+  shinyOwned: Object.fromEntries(PLAYABLE_IDS.flatMap((id) => Math.max(a.shinyOwned[id] ?? 0, b.shinyOwned[id] ?? 0) > 0 ? [[id, Math.max(a.shinyOwned[id] ?? 0, b.shinyOwned[id] ?? 0)]] : [])),
+  transfers: Object.fromEntries([...new Set([...Object.keys(a.transfers), ...Object.keys(b.transfers)])].map((key) => [key, { sent: Math.max(a.transfers[key]?.sent ?? 0, b.transfers[key]?.sent ?? 0), received: Math.max(a.transfers[key]?.received ?? 0, b.transfers[key]?.received ?? 0) }])),
   banners: Object.fromEntries(BANNERS.map((_, i) => {
     const x = a.banners[i + 1] ?? { pulls: 0, pity: 0 }, y = b.banners[i + 1] ?? { pulls: 0, pity: 0 }
     return [i + 1, x.pulls > y.pulls ? x : y.pulls > x.pulls ? y : { pulls: x.pulls, pity: Math.min(x.pity, y.pity) }]

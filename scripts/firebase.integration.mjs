@@ -1,17 +1,114 @@
 import { readFileSync } from 'node:fs'
 import { after, before, test } from 'node:test'
+import assert from 'node:assert/strict'
 import { initializeTestEnvironment, assertSucceeds, assertFails } from '@firebase/rules-unit-testing'
-import { doc, setDoc, getDoc, serverTimestamp, writeBatch } from 'firebase/firestore'
+import { doc, setDoc, getDoc, serverTimestamp, writeBatch, updateDoc, deleteDoc, runTransaction } from 'firebase/firestore'
 import { ref, set, get, remove, update } from 'firebase/database'
 
 let env
 before(async () => {
+  assert.ok(readFileSync('firestore.rules', 'utf8').includes(readFileSync('firebase.pkm.rules', 'utf8')), 'deployed rules must contain the current adaptation fragment')
   env = await initializeTestEnvironment({ projectId: 'demo-pkm-survivors', firestore: { host: '127.0.0.1', port: 8080, rules: readFileSync('firestore.rules', 'utf8') }, database: { host: '127.0.0.1', port: 9000, rules: readFileSync('database.rules.json', 'utf8') } })
   await env.clearFirestore(); await env.clearDatabase()
 })
 after(async () => { await env?.cleanup() })
 const db = (uid) => env.authenticatedContext(uid).firestore()
 const roomDb = (uid) => env.authenticatedContext(uid).database()
+
+test('friend requests require the recipient to accept and cannot be hijacked', async () => {
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), 'pkmProfiles/friend-b'), { uid: 'friend-b', name: 'B', handle: 'friendb' })
+  })
+  const a = db('friend-a'), b = db('friend-b'), c = db('friend-c'), path = 'pkmFriendships/friend-a_friend-b'
+  await assertSucceeds(setDoc(doc(a, path), { users: ['friend-a', 'friend-b'], from: 'friend-a', to: 'friend-b', status: 'pending', updatedAt: serverTimestamp() }))
+  await assertFails(getDoc(doc(c, path)))
+  await assertFails(updateDoc(doc(a, path), { status: 'accepted', updatedAt: serverTimestamp() }))
+  await assertFails(updateDoc(doc(b, path), { from: 'friend-c', status: 'accepted', updatedAt: serverTimestamp() }))
+  await assertSucceeds(updateDoc(doc(b, path), { status: 'accepted', updatedAt: serverTimestamp() }))
+  await assertFails(deleteDoc(doc(c, path)))
+  await assertSucceeds(deleteDoc(doc(b, path)))
+})
+
+const tradeOffer = (id, shiny = false) => ({ id, shiny, key: `${id}_${shiny ? 's' : 'n'}` })
+const seedTrade = async (suffix, left = tradeOffer('charmander'), right = tradeOffer('squirtle', true)) => {
+  const a = `trade-${suffix}-a`, b = `trade-${suffix}-b`, id = `trade-${suffix}`, store = db(a)
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    const admin = ctx.firestore()
+    await setDoc(doc(admin, 'pkmFriendships', `${a}_${b}`), { users: [a, b], from: a, to: b, status: 'accepted' })
+    for (const [uid, offer] of [[a, left], [b, right]]) {
+      await setDoc(doc(admin, 'pkmSaves', uid), { save: { gacha: { owned: { [offer.id]: 1 }, shiny: offer.shiny ? { [offer.id]: true } : {}, shinyOwned: offer.shiny ? { [offer.id]: 1 } : {} } }, revision: 1 })
+    }
+  })
+  for (const [uid, offer] of [[a, left], [b, right]]) await assertSucceeds(setDoc(doc(db(uid), 'pkmTradeStock', uid, 'copies', offer.key), { id: offer.id, shiny: offer.shiny, earned: 1, sent: 0, received: 0, lastTrade: '' }))
+  await assertSucceeds(setDoc(doc(store, 'pkmTrades', id), { users: [a, b], left, right: null, leftAccepted: false, rightAccepted: false, status: 'open', createdAt: serverTimestamp(), updatedAt: serverTimestamp() }))
+  await assertSucceeds(updateDoc(doc(db(b), 'pkmTrades', id), { right, leftAccepted: false, rightAccepted: false, updatedAt: serverTimestamp() }))
+  return { a, b, id, left, right, store }
+}
+const acceptTrade = async (t) => {
+  await assertSucceeds(updateDoc(doc(t.store, 'pkmTrades', t.id), { leftAccepted: true, updatedAt: serverTimestamp() }))
+  await assertSucceeds(updateDoc(doc(db(t.b), 'pkmTrades', t.id), { rightAccepted: true, updatedAt: serverTimestamp() }))
+}
+const transfer = async (t, partial = false) => runTransaction(t.store, async (tx) => {
+  const trade = await tx.get(doc(t.store, 'pkmTrades', t.id))
+  if (trade.data().status !== 'open') throw Error('closed')
+  const operations = new Map()
+  for (const [uid, outgoing, incoming] of [[t.a, t.left, t.right], [t.b, t.right, t.left]]) {
+    for (const [offer, kind] of [[outgoing, 'sent'], [incoming, 'received']]) {
+      const path = `pkmTradeStock/${uid}/copies/${offer.key}`, value = operations.get(path) ?? { offer, sent: 0, received: 0 }
+      value[kind]++; operations.set(path, value)
+    }
+  }
+  const snapshots = await Promise.all([...operations.keys()].map((path) => tx.get(doc(t.store, path))))
+  for (const [i, value] of [...operations.values()].entries()) {
+    if (partial && i > 0) continue
+    const snapshot = snapshots[i], before = snapshot.data() ?? { id: value.offer.id, shiny: value.offer.shiny, earned: 0, sent: 0, received: 0, lastTrade: '' }
+    tx.set(snapshot.ref, { ...before, sent: before.sent + value.sent, received: before.received + value.received, lastTrade: t.id })
+  }
+  tx.update(trade.ref, { status: 'done', updatedAt: serverTimestamp() })
+})
+test('trade confirmation protects the reviewed offers, transfers both inventories atomically and cannot repeat', async () => {
+  const t = await seedTrade('atomic')
+  await assertFails(updateDoc(doc(t.store, 'pkmTrades', t.id), { rightAccepted: true, updatedAt: serverTimestamp() }))
+  await assertFails(updateDoc(doc(t.store, 'pkmTrades', t.id), { right: tradeOffer('bulbasaur'), leftAccepted: false, rightAccepted: false, updatedAt: serverTimestamp() }))
+  await assertFails(transfer(t))
+  await acceptTrade(t)
+  await assertFails(transfer(t, true))
+  await assertSucceeds(transfer(t))
+  const incoming = (await getDoc(doc(db(t.a), 'pkmTradeStock', t.a, 'copies', t.right.key))).data()
+  if (incoming.received !== 1 || !incoming.shiny) throw Error('shiny transfer missing')
+  await assertFails(updateDoc(doc(t.store, 'pkmTrades', t.id), { status: 'open', updatedAt: serverTimestamp() }))
+  await assertFails(setDoc(doc(t.store, 'pkmTradeStock', t.a, 'copies', t.left.key), { id: t.left.id, shiny: false, earned: 1, sent: 0, received: 0, lastTrade: '' }))
+  await assertFails(setDoc(doc(t.store, 'pkmTradeStock', t.a, 'copies', t.right.key), { ...incoming, received: 2 }))
+})
+test('new offers invalidate both confirmations and a cancelled trade cannot transfer', async () => {
+  const t = await seedTrade('cancel')
+  await acceptTrade(t)
+  await assertFails(updateDoc(doc(t.store, 'pkmTrades', t.id), { left: tradeOffer('bulbasaur'), updatedAt: serverTimestamp() }))
+  await assertSucceeds(updateDoc(doc(t.store, 'pkmTrades', t.id), { left: tradeOffer('bulbasaur'), leftAccepted: false, rightAccepted: false, updatedAt: serverTimestamp() }))
+  await assertFails(transfer(t))
+  await assertSucceeds(updateDoc(doc(db(t.b), 'pkmTrades', t.id), { status: 'cancelled', updatedAt: serverTimestamp() }))
+  await assert.rejects(transfer(t), /closed/)
+})
+test('matching Pokémon in both offers transfer safely and stock cannot be minted above the cloud save', async () => {
+  const t = await seedTrade('same', tradeOffer('charmander'), tradeOffer('charmander'))
+  const ref = doc(t.store, 'pkmTradeStock', t.a, 'copies', t.left.key)
+  await assertFails(updateDoc(ref, { earned: 2 }))
+  await assertFails(updateDoc(ref, { sent: 1, received: 1 }))
+  await acceptTrade(t); await assertSucceeds(transfer(t))
+  const stock = (await getDoc(ref)).data()
+  if (stock.sent !== 1 || stock.received !== 1 || stock.earned !== 1) throw Error('same-species ledger mismatch')
+})
+test('two concurrent trades cannot spend the same copy twice', async () => {
+  const t = await seedTrade('race'), id2 = `${t.id}-second`
+  const original = (await getDoc(doc(t.store, 'pkmTrades', t.id))).data()
+  await setDoc(doc(t.store, 'pkmTrades', id2), { ...original, right: null, createdAt: serverTimestamp(), updatedAt: serverTimestamp() })
+  await updateDoc(doc(db(t.b), 'pkmTrades', id2), { right: t.right, leftAccepted: false, rightAccepted: false, updatedAt: serverTimestamp() })
+  await acceptTrade(t); await acceptTrade({ ...t, id: id2 })
+  const results = await Promise.allSettled([transfer(t), transfer({ ...t, id: id2 })])
+  if (results.filter((r) => r.status === 'fulfilled').length !== 1) throw Error('double-spend was not rejected')
+  const stock = (await getDoc(doc(t.store, 'pkmTradeStock', t.a, 'copies', t.left.key))).data()
+  if (stock.sent !== 1) throw Error('outgoing copy counted twice')
+})
 
 test('private saves: owner, revisions, server timestamp and no public read', async () => {
   const owner = db('save-owner'), stranger = db('other')

@@ -87,7 +87,7 @@ import { starterSelect } from './ui/starterSelect'
 import { firebaseText } from './i18n/firebase'
 import { firebaseRankingScreen } from './ui/firebaseRanking'
 import { multiplayerScreen } from './ui/multiplayer'
-import { ownsPokemon } from './game/gacha'
+import { ownsPokemon, ownsShiny } from './game/gacha'
 import { titleButton, titleScreen } from './ui/title'
 import { banner, clearToasts, tickToasts, toast } from './ui/toasts'
 
@@ -512,7 +512,7 @@ const startRun = async (starter: PlayableId, daily: ChallengeRun | null = null) 
     difficulty: save.difficulty,
     ranks: save.ranks,
     // A shiny hatch is shiny for good; a starter rolled shiny once plays shiny when picked so.
-    shiny: (isHatchling(starter) && save.hatched[starter]?.shiny === true) || save.shinyStarters[starter] === true,
+    shiny: ownsShiny(save, starter) && ((isHatchling(starter) && save.hatched[starter]?.shiny === true) || save.shinyStarters[starter] === true),
     luckyEgg: save.eggs.length === 0 && HATCHLING_IDS.every((id) => !save.hatched[id]),
     outbreak: plan.outbreak,
     lure: used.lure,
@@ -522,7 +522,7 @@ const startRun = async (starter: PlayableId, daily: ChallengeRun | null = null) 
   // Created like a replay is re-simulated (the roster drawn ahead is the same one).
   const game = startGame(start, view)
   // The 1/64 roll unlocks this Pokémon's shiny for good (Normal/Shiny on the select screen).
-  if (game.player.luckyShiny) updateSave((s) => ({ ...s, shinyStarters: unlockShinyStarter(s.shinyStarters, starter) }))
+  if (game.player.luckyShiny) updateSave((s) => ({ ...s, gacha: { ...s.gacha, nativeShiny: { ...s.gacha.nativeShiny, [starter]: true } }, shinyStarters: unlockShinyStarter(s.shinyStarters, starter) }))
   // A shiny run must not start in normal colors.
   if (game.player.shiny) await preloadShinies(playableDex(starter))
   // Alternate forms (Aegislash's Blade Forme) stream in behind; until then the normal form stands in.
@@ -1213,6 +1213,7 @@ if (import.meta.env.DEV) {
   Object.assign(window, {
     ps: {
       run: () => run,
+      match: () => screen?.debug?.(),
       startRun,
       showTitle,
       showMenu,

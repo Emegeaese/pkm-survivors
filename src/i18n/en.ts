@@ -1,3 +1,4 @@
+import { onlineGoals, onlineNames } from './online'
 import type { Messages } from './pt'
 
 const typeBoost = (type: string) => `+10% damage to ${type}-type moves.`
@@ -627,7 +628,7 @@ export const en: Messages = {
     rewardItem: (name) => `+ ${name} (goes to the bag)`,
     reportItems: (n) => (n === 1 ? '+1 item in the bag' : `+${n} items in the bag`),
     toastItem: (n) => (n === 1 ? 'An *item* went to the bag!' : `${n} *items* went to the bag!`),
-    goals: {
+    goals: { ...onlineGoals.en,
       kills: (n) => `Defeat ${n} Pokémon`,
       typeKills: (n, type) => `Defeat ${n} ${type}-type Pokémon`,
       weatherKills: {
@@ -676,7 +677,7 @@ export const en: Messages = {
     equipped: 'SHOWN',
     giftTitles: { ambassador: 'Brought 3 friends to the game' },
     newMedals: 'New medals',
-    names: {
+    names: { ...onlineNames.en,
       firstRun: 'First steps',
       regular: 'Regular',
       veteran: 'Veteran',
@@ -749,7 +750,7 @@ export const en: Messages = {
       reaperDown: 'Living Legend',
       ambassador: 'Ambassador',
     },
-    goals: {
+    goals: { ...onlineGoals.en,
       runs: (n) => (n === '1' ? 'Play a run' : `Play ${n} runs`),
       kills: (n) => `Defeat ${n} Pokémon in total`,
       bestMinutes: (n) => `Survive ${n} min in one run`,

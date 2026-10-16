@@ -19,6 +19,7 @@ export const MEDAL_EGG: Partial<Record<Medal, EggTier>> = { gold: 'rare' }
 
 /** Lifetime numbers an achievement can track (see `statValue` in `game/achievements.ts`). */
 export type AchievementStat =
+  | 'coopRuns' | 'coopWins' | 'coopMinutes' | 'coopRevivals' | 'versusRuns' | 'versusWins'
   | 'runs' | 'kills' | 'bestMinutes' | 'bestLevel' | 'finalStages'
   | 'wins' | 'trio' | 'regions' | 'starters'
   | 'shinyKills' | 'shinyStarters' | 'shinyLegends'
@@ -37,6 +38,12 @@ const region = (gen: number) => ({ medal: 'silver', stat: 'region', gen }) as co
 
 /** In list order: from first steps to feats. */
 export const ACHIEVEMENTS = {
+  coopFirst: { medal: 'bronze', stat: 'coopRuns', target: 1 },
+  coopChampion: { medal: 'silver', stat: 'coopWins', target: 5 },
+  coopRescuer: { medal: 'silver', stat: 'coopRevivals', target: 10 },
+  versusFirst: { medal: 'bronze', stat: 'versusRuns', target: 1 },
+  versusChampion: { medal: 'silver', stat: 'versusWins', target: 10 },
+  versusVeteran: { medal: 'gold', stat: 'versusRuns', target: 50 },
   firstRun: { medal: 'bronze', stat: 'runs', target: 1 },
   regular: { medal: 'silver', stat: 'runs', target: 25 },
   veteran: { medal: 'gold', stat: 'runs', target: 100, title: true },

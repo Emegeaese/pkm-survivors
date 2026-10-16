@@ -54,6 +54,7 @@ export const pokedexScreen = (root: HTMLElement, input: Input, onClose: () => vo
   let footerIndex = 0
   /** Indexes into `entries` that pass the filter, in grid order. */
   let visible: number[] = []
+  let disposed = false, openingPc = false
 
   const close = () => later(onClose)
 
@@ -93,11 +94,15 @@ export const pokedexScreen = (root: HTMLElement, input: Input, onClose: () => vo
   /** The Caixa do PC, open over the Pokédex until it closes. */
   let sub: Screen | null = null
   const showPc = () => {
-    if (!openPc || sub) return
+    if (!openPc || sub || openingPc || disposed) return
+    openingPc = true
     playSfx('select')
     later(() => {
+      openingPc = false
+      if (disposed) return
       el.classList.add('hidden')
       sub = openPc(() => {
+        sub?.dispose()
         sub = null
         el.classList.remove('hidden')
       })
@@ -259,5 +264,5 @@ export const pokedexScreen = (root: HTMLElement, input: Input, onClose: () => vo
     else blitCentered(ctx, PICKUPS.pokeball(), sprite.width / 2, sprite.height / 2 + Math.round(Math.sin(time * 6) * 2))
   }
 
-  return { el, tick, dim: 0.5, dispose: () => (sub?.dispose(), off(), el.remove()) }
+  return { el, tick, dim: 0.5, dispose: () => { if (disposed) return; disposed = true; sub?.dispose(); sub = null; off(); el.remove() } }
 }

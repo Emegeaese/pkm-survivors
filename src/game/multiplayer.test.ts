@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { createMatch, matchCommand, matchHash, selectMember, stepMatch, type Match, type Trainer } from './multiplayer'
+import { createMatch, matchCommand, matchHash, REVIVE_SECONDS, selectMember, spectatorTarget, stepMatch, type Match, type Trainer } from './multiplayer'
 import { spawnEnemy } from './enemies'
 import { dropXp } from './pickups'
 import { dropMegaStones, grantStone } from './mega'
@@ -11,6 +11,37 @@ const trainers: Trainer[] = [
 const choose = (m: Match) => m.members.filter((p) => p.state.phase === 'levelup').map((p) => ({ id: p.trainer.id, kind: 'pick' as const, index: 0 }))
 
 describe('shared multiplayer simulation', () => {
+  it('spectates living trainers, switches targets after death and restores the local camera after revival', () => {
+    const m = createMatch([...trainers, { ...trainers[0]!, id: 'brock', name: 'Brock' }], 'coop', 1)
+    expect(spectatorTarget(m, 'ash', null)?.trainer.id).toBe('ash')
+    m.members[0]!.state.player.hp = 0
+    const checksum = matchHash(m)
+    expect(spectatorTarget(m, 'ash', null)?.trainer.id).toBe('misty')
+    expect(spectatorTarget(m, 'ash', 'misty', 1)?.trainer.id).toBe('brock')
+    expect(spectatorTarget(m, 'ash', 'misty', -1)?.trainer.id).toBe('brock')
+    expect(matchHash(m)).toBe(checksum)
+    m.members[1]!.connected = false
+    expect(spectatorTarget(m, 'ash', 'misty')?.trainer.id).toBe('brock')
+    m.members[0]!.state.player.hp = 1
+    expect(spectatorTarget(m, 'ash', 'brock')?.trainer.id).toBe('ash')
+    m.members.forEach((p) => { p.state.player.hp = 0 })
+    expect(spectatorTarget(m, 'ash', 'brock')?.trainer.id).toBe('ash')
+  })
+  it('resets interrupted revive progress and credits the rescuing trainer exactly once', () => {
+    const m = createMatch(trainers, 'coop', 1)
+    m.game.spawnBudget = -100000
+    const [a, b] = m.members
+    b!.state.player.hp = 0; b!.state.phase = 'gameover'
+    for (let i = 0; i < 120; i++) stepMatch(m, {})
+    expect(b!.revive).toBeGreaterThan(1)
+    expect(b!.revive).toBeLessThan(REVIVE_SECONDS)
+    a!.state.player.x = 1000; stepMatch(m, {})
+    expect(b!.revive).toBe(0); expect(a!.revivals).toBe(0)
+    a!.state.player.x = b!.state.player.x
+    for (let i = 0; i < 310; i++) stepMatch(m, {}, choose(m))
+    expect(b!.state.player.hp).toBeGreaterThan(0)
+    expect(b!.revive).toBe(0); expect(a!.revivals).toBe(1)
+  })
   it('reproduces the same world, upgrades and checksums on independent clients', () => {
     const a = createMatch(trainers, 'coop', 125), b = createMatch(trainers, 'coop', 125)
     for (let tick = 0; tick < 600; tick++) {

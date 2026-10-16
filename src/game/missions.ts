@@ -15,7 +15,7 @@ import type { RunSummary } from './tally'
  */
 
 /** `egg`: an egg of that tier comes with the ₽; `item`: one of that item goes into the bag. */
-export type Mission = { id: string; period: MissionPeriod; goal: MissionGoal; target: number; reward: number; egg?: EggTier; item?: BagItem }
+export type Mission = { id: string; period: MissionPeriod; goal: MissionGoal; target: number; reward: number; tickets?: number; egg?: EggTier; item?: BagItem }
 
 export const MISSION_PERIODS = Object.keys(MISSION_SLOTS) as MissionPeriod[]
 
@@ -54,11 +54,15 @@ const POOLS: Record<MissionPeriod, readonly MissionTemplate[]> = { daily: DAILY_
 /** The missions of the period holding `date`, one per drawn template, seeded by the period's key. */
 export const drawMissions = (period: MissionPeriod, date: Date): Mission[] => {
   const rng = createRng(seedFrom(`${period}:${periodKey(period, date)}`))
-  return sample(rng, POOLS[period], MISSION_SLOTS[period]).map((template) => {
+  const regular = sample(rng, POOLS[period], MISSION_SLOTS[period]).map((template) => {
     const goal = pick(rng, template.goals)
     const [target, reward] = pick(rng, template.tiers)
     return { id: missionId(goal, target), period, goal, target, reward, ...(template.egg && { egg: template.egg }), ...(template.item && { item: template.item }) }
   })
+  const online: Array<{ kind: 'coopMinutes' | 'coopRevivals' | 'coopWins' | 'versusRuns' | 'versusWins'; target: number; tickets: number }> = period === 'daily'
+    ? [{ kind: 'coopMinutes', target: 5, tickets: 2 }, { kind: 'coopRevivals', target: 1, tickets: 2 }, { kind: 'versusRuns', target: 2, tickets: 2 }, { kind: 'versusWins', target: 1, tickets: 2 }]
+    : [{ kind: 'coopWins', target: 2, tickets: 10 }, { kind: 'versusWins', target: 5, tickets: 10 }]
+  return [...regular, ...online.map(({ kind, target, tickets }) => ({ id: missionId({ kind }, target), period, goal: { kind }, target, reward: 0, tickets }))]
 }
 
 /* ---------------- Progress ---------------- */
@@ -73,6 +77,12 @@ const starterIs = (s: RunSummary, type: PokeType | undefined) =>
 /** What a run is worth towards a goal. */
 export const goalValue = (goal: MissionGoal, s: RunSummary): number => {
   switch (goal.kind) {
+    case 'coopRuns': return s.online?.mode === 'coop' && s.online.finished && s.time >= 60 ? 1 : 0
+    case 'coopWins': return s.online?.mode === 'coop' && s.online.finished && s.online.won && s.time >= 60 ? 1 : 0
+    case 'coopMinutes': return s.online?.mode === 'coop' ? Math.floor(s.time / 60) : 0
+    case 'coopRevivals': return s.online?.mode === 'coop' ? s.online.revivals : 0
+    case 'versusRuns': return s.online?.mode === 'versus' && s.online.finished && s.time >= 60 ? 1 : 0
+    case 'versusWins': return s.online?.mode === 'versus' && s.online.finished && s.online.won && s.time >= 60 ? 1 : 0
     case 'kills': return s.kills
     case 'typeKills': return s.killsByType[goal.type] ?? 0
     case 'weatherKills': return s.killsByWeather[goal.weather] ?? 0

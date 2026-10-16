@@ -6,6 +6,7 @@ import { dexCounts, dexStatus, EMPTY_DEX, type Pokedex } from './dex'
 import { overtime } from './endless'
 import { isRecord, knownIds, wholeNumber } from './parse'
 import type { RunSummary } from './tally'
+import { goalValue } from './missions'
 
 /**
  * Lifetime records and the achievements they unlock. Pure: the shell
@@ -15,7 +16,8 @@ import type { RunSummary } from './tally'
 /** Run summary fields that add up over a lifetime as they are. */
 const SUMMED = ['kills', 'shinyKills', 'bossKills', 'shinyLegends', 'chests', 'meowths', 'altars', 'coins', 'moveEvolutions', 'reaperDefeats', 'megas'] as const satisfies readonly (keyof RunSummary)[]
 
-const COUNTERS = [...SUMMED, 'runs', 'wins', 'rifts', 'finalStages', 'shinyStarters', 'missions', 'bestTime', 'bestLevel', 'bestOvertime', 'hatches', 'shinyHatches'] as const
+const ONLINE_COUNTERS = ['coopRuns', 'coopWins', 'coopMinutes', 'coopRevivals', 'versusRuns', 'versusWins'] as const
+const COUNTERS = [...SUMMED, ...ONLINE_COUNTERS, 'runs', 'wins', 'rifts', 'finalStages', 'shinyStarters', 'missions', 'bestTime', 'bestLevel', 'bestOvertime', 'hatches', 'shinyHatches'] as const
 
 type Counter = (typeof COUNTERS)[number]
 
@@ -55,6 +57,7 @@ export const addRun = (l: Lifetime, s: RunSummary, before: RunSummary | null, mi
   return {
     ...l,
     ...summed,
+    ...Object.fromEntries(ONLINE_COUNTERS.map((kind) => [kind, l[kind] + Math.max(0, goalValue({ kind }, s) - (before ? goalValue({ kind }, before) : 0))])) as Record<(typeof ONLINE_COUNTERS)[number], number>,
     runs: l.runs + (before ? 0 : 1),
     wins: l.wins + (won ? 1 : 0),
     rifts: l.rifts + s.legends.length - (before?.legends.length ?? 0),

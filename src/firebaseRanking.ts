@@ -9,6 +9,7 @@ import { loadSave } from './ui/save'
 import { dexCounts } from './game/dex'
 import { PLAYABLE, PLAYABLE_IDS } from './data/hatchlings'
 import { DIFFICULTY_IDS } from './game/difficulty'
+import { ONLINE_STATS } from './firebaseSocial'
 
 export type BoardFilter = { difficulty: Difficulty; period: BoardPeriod; starter: import('./data/hatchlings').PlayableId | null; friends: boolean }
 export type BoardOptions = { mode: RankingMode; difficulty: Difficulty; period: BoardPeriod; teamSize: number }
@@ -162,7 +163,8 @@ export const firebaseProfile = async (handle: string): Promise<PublicProfile | '
     const data = profile.data(), recent = runs.docs.map((d) => d.data() as ScoreEntry).sort((a, b) => b.at.localeCompare(a.at))
     const records: PublicProfile['records'] = {}
     for (const record of best) { const r = record.data() as ScoreEntry | undefined; if (r && validModeResult('solo', r)) records[r.difficulty] = r }
-    return { handle, name: String(data.name), title: null, dex: { seen: Number(stats.data()?.seen ?? 0), caught: Number(stats.data()?.caught ?? 0) }, records, recent, followers: fans.size, following: following.size, followed: ownFollowing.has(handle), self: uid === accountUserId() }
+    const online = Object.fromEntries(ONLINE_STATS.map((k) => [k, Number(stats.data()?.[k] ?? 0)])) as NonNullable<PublicProfile['online']>
+    return { handle, name: String(data.name), title: null, online, dex: { seen: Number(stats.data()?.seen ?? 0), caught: Number(stats.data()?.caught ?? 0) }, records, recent, followers: fans.size, following: following.size, followed: ownFollowing.has(handle), self: uid === accountUserId() }
   } catch { return null }
 }
 const followingHandles = async (uid: string | null) => {

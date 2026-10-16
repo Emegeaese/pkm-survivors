@@ -3,12 +3,32 @@ import { createRng } from '../engine/rng'
 import { EXTRA_PLAYABLE, PLAYABLE, PLAYABLE_IDS } from '../data/hatchlings'
 import { CATALOGUE_IDS } from '../data/catalogue-ids'
 import { STARTER_IDS } from '../data/starters'
-import { bannerPool, bannerRarity, bundleTickets, mergeGacha, ownsPokemon, parseGacha, pullGacha, runTickets, tickets } from './gacha'
+import { bannerPool, bannerRarity, bundleTickets, gachaCopies, mergeGacha, ownsPokemon, ownsShiny, parseGacha, pullGacha, runTickets, tickets } from './gacha'
 import { EMPTY_SAVE, parseSave } from './meta'
 import { mergeSaves } from './sync'
 import { createGame } from './game'
 
 describe('ticket gacha and catalogue', () => {
+  it('does not resurrect traded copies when an old device syncs, and receives shiny copies without minting them again', () => {
+    const before = { ...EMPTY_SAVE, gacha: parseGacha({ owned: { gible: 1 }, shiny: { gible: true } }) }
+    expect(ownsShiny(before, 'gible')).toBe(true)
+    const after = { ...before, gacha: { ...before.gacha, transfers: { gible_s: { sent: 1, received: 0 } } } }
+    const merged = mergeSaves(after, before)
+    expect(gachaCopies(merged.gacha, 'gible', true)).toBe(0)
+    expect(ownsShiny(merged, 'gible')).toBe(false)
+    expect(ownsPokemon(merged, 'gible')).toBe(false)
+    const received = { ...EMPTY_SAVE, gacha: parseGacha({ transfers: { gible_s: { sent: 0, received: 1 } } }) }
+    expect(ownsPokemon(received, 'gible')).toBe(true)
+    expect(ownsShiny(received, 'gible')).toBe(true)
+    expect(gachaCopies(mergeSaves(received, received).gacha, 'gible', true)).toBe(1)
+    expect(received.gacha.owned.gible).toBeUndefined()
+    const sentAgain = parseSave(JSON.stringify({ ...received, shinyStarters: { gible: true }, gacha: { ...received.gacha, transfers: { gible_s: { received: 1, sent: 1 } } } }))
+    expect(ownsShiny(sentAgain, 'gible')).toBe(false)
+    expect(ownsPokemon(sentAgain, 'gible')).toBe(false)
+    const legacy = parseSave(JSON.stringify({ ...EMPTY_SAVE, shinyStarters: { gible: false } }))
+    expect(ownsShiny(legacy, 'gible')).toBe(true)
+    expect(EMPTY_SAVE.gacha.nativeShiny).toEqual({})
+  })
   it('keeps all 27 starters free and all shipped species playable after unlocking', () => {
     expect(PLAYABLE_IDS.filter((id) => ownsPokemon(EMPTY_SAVE, id))).toEqual(STARTER_IDS)
     expect([...CATALOGUE_IDS].sort()).toEqual(Object.keys(EXTRA_PLAYABLE).sort())

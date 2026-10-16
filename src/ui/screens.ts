@@ -21,6 +21,8 @@ import { formatNumber, formatPokeDollars, t, type Messages } from '../i18n'
 import { h, later } from './dom'
 
 export type Screen = {
+  /** Development diagnostics; exposed by `ps.match()` only in Vite development builds. */
+  debug?: () => unknown
   /** A network session supplies its current game for music and controller input. */
   playing?: () => Game | null
   el: HTMLElement

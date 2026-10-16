@@ -127,18 +127,25 @@ describe('earning ₽', () => {
 
   it('pays a bigger bonus for longer runs, more kills, victory and greed', () => {
     const base = { time: 300, kills: 400, victory: false, greed: 1 }
-    expect(runBonus(base)).toBe(250)
+    expect(runBonus(base)).toBe(160)
     expect(runBonus({ ...base, time: 600 })).toBeGreaterThan(runBonus(base))
-    expect(runBonus({ ...base, victory: true })).toBe(1250)
-    expect(runBonus({ ...base, greed: 1.5 })).toBe(375)
+    expect(runBonus({ ...base, victory: true })).toBe(760)
+    expect(runBonus({ ...base, greed: 1.5 })).toBe(240)
   })
 
   it('pays every endless minute past Mewtwo triple, plus a fortune per defeated Arceus', () => {
     const won = { time: 900, kills: 0, victory: true, greed: 1 }
     const fiveMore = runBonus({ ...won, time: 900 + 300 })
-    expect(fiveMore - runBonus(won)).toBe(5 * 90)
-    expect(runBonus({ ...won, reaperDefeats: 1 }) - runBonus(won)).toBe(5000)
+    expect(fiveMore - runBonus(won)).toBe(5 * 60)
+    expect(runBonus({ ...won, reaperDefeats: 1 }) - runBonus(won)).toBe(1500)
     // Overtime only counts after a victory.
-    expect(runBonus({ ...won, time: 1200, victory: false })).toBe(600)
+    expect(runBonus({ ...won, time: 1200, victory: false })).toBe(400)
+  })
+  it('caps drops from high-XP hordes and bounds extreme greed bonuses', () => {
+    const rng = createRng(2)
+    const drops = Array.from({ length: 10000 }, () => coinDrops(rng, { boss: false, xp: 1000 }).length)
+    expect(drops.reduce((sum, n) => sum + n, 0)).toBeLessThan(600)
+    const run = { time: 900, kills: 5000, victory: true, greed: 2.5 }
+    expect(runBonus({ ...run, greed: 20 })).toBe(runBonus(run))
   })
 })

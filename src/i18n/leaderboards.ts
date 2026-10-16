@@ -1,0 +1,5 @@
+import { locale } from './index'
+const es = { all: 'Todos', friends: 'Amigos', top: 'Los 50 mejores', mine: 'Tu posición', outside: 'No apareces entre los 50 primeros de esta tabla.', player: 'Entrenador / equipo', time: 'Tiempo', kills: 'Derrotados', login: 'Inicia sesión para filtrar por amigos.', tie: 'Orden: puntuación, Pokémon derrotados y fecha del resultado.', jump: 'Ver mi resultado' }
+const en: typeof es = { all: 'Everyone', friends: 'Friends', top: 'Top 50', mine: 'Your position', outside: 'You are not in the top 50 of this board.', player: 'Trainer / team', time: 'Time', kills: 'Defeated', login: 'Sign in to filter friends.', tie: 'Order: score, defeated Pokémon and result date.', jump: 'Show my result' }
+const pt: typeof es = { all: 'Todos', friends: 'Amigos', top: 'Os 50 melhores', mine: 'Sua posição', outside: 'Você não está entre os 50 primeiros desta tabela.', player: 'Treinador / equipe', time: 'Tempo', kills: 'Derrotados', login: 'Entre para filtrar amigos.', tie: 'Ordem: pontuação, Pokémon derrotados e data do resultado.', jump: 'Ver meu resultado' }
+export const scoreboardText = () => locale() === 'es' ? es : locale() === 'pt' ? pt : en

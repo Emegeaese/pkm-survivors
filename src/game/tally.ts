@@ -65,6 +65,7 @@ export const countNotice = (tally: RunTally, notice: MapEventNotice) => bump(tal
 
 /** Everything missions and achievements need to know about a run, as plain data. */
 export type RunSummary = {
+  online?: { mode: 'coop' | 'versus'; finished: boolean; won: boolean; revivals: number }
   /** The Pokémon played: a starter or a hatched family. */
   starter: PlayableId
   /** What the ranking files the run under: each level has its own board. */

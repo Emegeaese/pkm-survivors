@@ -1,4 +1,6 @@
 import { accountRealName, accountState, saveProfile } from '../account'
+import { ONLINE_STATS } from '../firebaseSocial'
+import { socialText } from '../i18n/social'
 import { playSfx } from '../engine/audio'
 import type { Input } from '../engine/input'
 import { formatTime } from '../engine/math'
@@ -153,6 +155,7 @@ export const profileScreen = (root: HTMLElement, input: Input, handle: string, o
         h('p', { class: 'profile-social' }, [m.followers(p.followers), m.following(p.following), ...(p.brought ? [m.brought(p.brought)] : [])].join(' · ')),
         !p.self && !signedIn ? note(m.followGuest) : null,
         section(m.records, h('div', { class: 'profile-records' }, ...DIFFICULTY_IDS.map((d) => recordCell(d, p.records[d])))),
+        ...(p.online ? [section(socialText().profile, h('div', { class: 'online-stats' }, ...ONLINE_STATS.map((key) => h('div', {}, h('span', {}, socialText()[key]), h('b', {}, p.online![key])))))] : []),
         ribbonRow(p.ribbons),
         section(
           m.dex,

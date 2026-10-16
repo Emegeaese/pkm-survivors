@@ -58,10 +58,16 @@
     }
     match /pkmStats/{uid} {
       allow read: if true;
-      allow create, update: if pkmOwner(uid) && request.resource.data.keys().hasOnly(['seen', 'caught'])
-        && request.resource.data.seen is int && request.resource.data.caught is int
-        && request.resource.data.seen >= 0 && request.resource.data.seen <= 2000
-        && request.resource.data.caught >= 0 && request.resource.data.caught <= 2000;
+      allow create, update: if pkmOwner(uid) && request.resource.data.keys().hasOnly(['seen', 'caught', 'coopRuns', 'coopWins', 'coopMinutes', 'coopRevivals', 'versusRuns', 'versusWins'])
+        && request.resource.data.values().size() <= 8
+        && request.resource.data.get('seen', 0) is int && request.resource.data.get('seen', 0) >= 0 && request.resource.data.get('seen', 0) <= 2000
+        && request.resource.data.get('caught', 0) is int && request.resource.data.get('caught', 0) >= 0 && request.resource.data.get('caught', 0) <= 2000
+        && request.resource.data.get('coopRuns', 0) is int && request.resource.data.get('coopRuns', 0) >= 0
+        && request.resource.data.get('coopWins', 0) is int && request.resource.data.get('coopWins', 0) >= 0
+        && request.resource.data.get('coopMinutes', 0) is int && request.resource.data.get('coopMinutes', 0) >= 0
+        && request.resource.data.get('coopRevivals', 0) is int && request.resource.data.get('coopRevivals', 0) >= 0
+        && request.resource.data.get('versusRuns', 0) is int && request.resource.data.get('versusRuns', 0) >= 0
+        && request.resource.data.get('versusWins', 0) is int && request.resource.data.get('versusWins', 0) >= 0;
     }
     match /pkmStarts/{id} {
       allow read: if request.auth != null && resource.data.uid == request.auth.uid;
@@ -91,6 +97,110 @@
         && getAfter(/databases/$(database)/documents/pkmRuns/$(request.resource.data.runId)).data.uid == request.auth.uid
         && pkmBoard(board, entry, request.resource.data);
     }
+    function pkmPair(a, b) { return a < b ? a + '_' + b : b + '_' + a; }
+    function pkmFriends(a, b) {
+      return exists(/databases/$(database)/documents/pkmFriendships/$(pkmPair(a, b)))
+        && get(/databases/$(database)/documents/pkmFriendships/$(pkmPair(a, b))).data.status == 'accepted';
+    }
+    match /pkmFriendships/{id} {
+      allow read: if request.auth != null && (resource == null || request.auth.uid in resource.data.users);
+      allow create: if request.auth != null
+        && request.resource.data.keys().hasOnly(['users', 'from', 'to', 'status', 'updatedAt'])
+        && request.resource.data.from == request.auth.uid && request.resource.data.to is string
+        && request.resource.data.to != request.auth.uid
+        && request.resource.data.users == (request.resource.data.from < request.resource.data.to
+          ? [request.resource.data.from, request.resource.data.to] : [request.resource.data.to, request.resource.data.from])
+        && id == pkmPair(request.resource.data.from, request.resource.data.to)
+        && request.resource.data.status == 'pending' && request.resource.data.updatedAt == request.time
+        && exists(/databases/$(database)/documents/pkmProfiles/$(request.resource.data.to));
+      allow update: if request.auth != null && resource.data.to == request.auth.uid
+        && resource.data.status == 'pending' && request.resource.data.status == 'accepted'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt'])
+        && request.resource.data.updatedAt == request.time;
+      allow delete: if request.auth != null && request.auth.uid in resource.data.users;
+    }
+    function pkmOffer(o) {
+      return o == null || (o is map && o.keys().hasOnly(['id', 'shiny', 'key'])
+        && o.id is string && o.id.matches('^[a-z0-9-]{1,40}$') && o.shiny is bool
+        && o.key == o.id + (o.shiny ? '_s' : '_n'));
+    }
+    function pkmStock(uid, key) {
+      return exists(/databases/$(database)/documents/pkmTradeStock/$(uid)/copies/$(key))
+        ? get(/databases/$(database)/documents/pkmTradeStock/$(uid)/copies/$(key)).data
+        : {'earned': 0, 'sent': 0, 'received': 0};
+    }
+    function pkmAfterStock(uid, key) {
+      return getAfter(/databases/$(database)/documents/pkmTradeStock/$(uid)/copies/$(key)).data;
+    }
+    function pkmStockMoved(uid, outKey, inKey, key, tradeId) {
+      let old = pkmStock(uid, key);
+      let next = pkmAfterStock(uid, key);
+      return next.earned == old.earned
+        && next.sent == old.sent + (key == outKey ? 1 : 0)
+        && next.received == old.received + (key == inKey ? 1 : 0)
+        && next.lastTrade == tradeId
+        && (key != outKey || old.earned + old.received - old.sent >= 1);
+    }
+    function pkmAllMoved(d, tradeId) {
+      return pkmStockMoved(d.users[0], d.left.key, d.right.key, d.left.key, tradeId)
+        && pkmStockMoved(d.users[0], d.left.key, d.right.key, d.right.key, tradeId)
+        && pkmStockMoved(d.users[1], d.right.key, d.left.key, d.right.key, tradeId)
+        && pkmStockMoved(d.users[1], d.right.key, d.left.key, d.left.key, tradeId);
+    }
+    match /pkmTrades/{id} {
+      allow read: if request.auth != null && (resource == null || request.auth.uid in resource.data.users);
+      allow create: if request.auth != null && request.resource.data.keys().hasOnly(['users', 'left', 'right', 'leftAccepted', 'rightAccepted', 'status', 'createdAt', 'updatedAt'])
+        && request.resource.data.users is list && request.resource.data.users.size() == 2
+        && request.resource.data.users[0] == request.auth.uid && request.resource.data.users[1] != request.auth.uid
+        && pkmFriends(request.auth.uid, request.resource.data.users[1])
+        && pkmOffer(request.resource.data.left) && request.resource.data.left != null && request.resource.data.right == null
+        && request.resource.data.leftAccepted == false && request.resource.data.rightAccepted == false
+        && request.resource.data.status == 'open' && request.resource.data.createdAt == request.time && request.resource.data.updatedAt == request.time;
+      allow update: if request.auth != null && request.auth.uid in resource.data.users && resource.data.status == 'open'
+        && request.resource.data.updatedAt == request.time
+        && ((request.resource.data.status == 'cancelled' && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt']))
+        || (pkmFriends(resource.data.users[0], resource.data.users[1]) && (
+          (request.resource.data.status == 'open' && pkmOffer(request.resource.data.left) && pkmOffer(request.resource.data.right)
+            && ((request.resource.data.diff(resource.data).affectedKeys().hasOnly([request.auth.uid == resource.data.users[0] ? 'left' : 'right', 'leftAccepted', 'rightAccepted', 'updatedAt'])
+              && request.resource.data.leftAccepted == false && request.resource.data.rightAccepted == false)
+            || (request.resource.data.left != null && request.resource.data.right != null
+              && request.resource.data.diff(resource.data).affectedKeys().hasOnly([request.auth.uid == resource.data.users[0] ? 'leftAccepted' : 'rightAccepted', 'updatedAt'])
+              && (request.auth.uid == resource.data.users[0] ? request.resource.data.leftAccepted : request.resource.data.rightAccepted) == true)))
+          || (request.resource.data.status == 'done' && resource.data.leftAccepted && resource.data.rightAccepted
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt']) && pkmAllMoved(resource.data, id))
+        )));
+    }
+    function pkmMinted(uid, d) {
+      let g = get(/databases/$(database)/documents/pkmSaves/$(uid)).data.save.gacha;
+      let shiny = g.get('shinyOwned', {}).get(d.id, g.get('shiny', {}).get(d.id, false) == true ? 1 : 0);
+      return d.shiny ? shiny : g.get('owned', {}).get(d.id, 0) - shiny;
+    }
+    function pkmTransferStock(uid, key, d) {
+      let before = get(/databases/$(database)/documents/pkmTrades/$(d.lastTrade)).data;
+      let after = getAfter(/databases/$(database)/documents/pkmTrades/$(d.lastTrade)).data;
+      let outKey = uid == before.users[0] ? before.left.key : before.right.key;
+      let inKey = uid == before.users[0] ? before.right.key : before.left.key;
+      return request.auth.uid in before.users && uid in before.users && before.status == 'open' && after.status == 'done'
+        && before.leftAccepted && before.rightAccepted && (key == outKey || key == inKey)
+        && pkmStockMoved(uid, outKey, inKey, key, d.lastTrade);
+    }
+    match /pkmTradeStock/{uid}/copies/{key} {
+      allow read: if request.auth != null && (pkmOwner(uid) || pkmFriends(uid, request.auth.uid));
+      allow create, update: if request.auth != null
+        && request.resource.data.keys().hasOnly(['id', 'shiny', 'earned', 'sent', 'received', 'lastTrade'])
+        && pkmOffer({'id': request.resource.data.id, 'shiny': request.resource.data.shiny, 'key': key})
+        && request.resource.data.earned is int && request.resource.data.earned >= 0
+        && request.resource.data.sent is int && request.resource.data.sent >= 0
+        && request.resource.data.received is int && request.resource.data.received >= 0
+        && request.resource.data.earned + request.resource.data.received >= request.resource.data.sent
+        && ((pkmOwner(uid) && request.resource.data.earned >= (resource == null ? 0 : resource.data.earned)
+          && (request.resource.data.earned == (resource == null ? 0 : resource.data.earned) || request.resource.data.earned == pkmMinted(uid, request.resource.data))
+          && request.resource.data.sent == (resource == null ? 0 : resource.data.sent)
+          && request.resource.data.received == (resource == null ? 0 : resource.data.received)
+          && request.resource.data.lastTrade == (resource == null ? '' : resource.data.lastTrade))
+        || (request.resource.data.lastTrade is string && request.resource.data.lastTrade.size() > 0 && pkmTransferStock(uid, key, request.resource.data)));
+    }
+
     match /pkmFollows/{uid}/targets/{handle} {
       allow read: if true;
       allow delete: if pkmOwner(uid);

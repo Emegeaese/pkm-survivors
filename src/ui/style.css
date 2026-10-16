@@ -5401,6 +5401,8 @@ a.btn.dex-site {
 .firebase-rank-list .rank-row { display: grid; grid-template-columns: 40px 40px minmax(80px,1fr) auto; gap: 8px; align-items: center; padding: 10px; }
 .firebase-rank-list .rank-row img { width: 40px; height: 40px; image-rendering: pixelated; }
 .firebase-rank-list small { display: block; }
+.rank-profile { border: 0; background: transparent; color: inherit; font: inherit; text-align: left; text-decoration: underline; cursor: pointer; overflow-wrap: anywhere; }
+.firebase-rank-list .rank-row.me { outline: 2px solid #ffcb3d; background: #ffcb3d18; }
 .feature-screen { overflow: auto; padding: 24px 12px; align-items: flex-start; }
 .feature-panel { width: min(1100px, 96vw); padding: 22px; margin: auto; display: flex; flex-direction: column; gap: 14px; max-height: none; }
 .feature-panel h1 { font-size: clamp(14px, 3vw, 24px); line-height: 1.8; }
@@ -5429,6 +5431,32 @@ a.btn.dex-site {
 .room-config { flex-direction: column; align-items: stretch; }.room-config label { justify-content: space-between; }.room-config input:not([type=checkbox]), .room-config select { width: 65%; }
 .room-panel { max-width: 760px; }.room-playing { padding: 0; pointer-events: none; }.room-playing .room-exit { pointer-events: auto; position: fixed; right: 12px; top: 60px; z-index: 12; font-size: 12px; }
 .room-team { position: fixed; left: 50%; transform: translateX(-50%); bottom: 8px; z-index: 8; font-size: 14px; padding: 8px; pointer-events: none; max-width: 90vw; }
+.room-spectator { position: fixed; left: 50%; transform: translateX(-50%); bottom: 56px; z-index: 13; padding: 6px; display: flex; align-items: center; gap: 10px; max-width: 94vw; font-size: 16px; }
+.room-spectator span { overflow-wrap: anywhere; text-align: center; }
+.gacha-wheel { position: relative; width: min(360px, 100%); height: 120px; overflow: hidden; margin: 0 auto; border: 3px solid #ffcb3d; background: #15253b; border-radius: 10px; }
+.gacha-wheel::after { content: '▼'; position: absolute; top: 0; left: calc(50% - 8px); color: #ffcb3d; text-shadow: 0 2px #000; }
+.gacha-reel { display: flex; width: max-content; margin-left: calc(50% - 60px); }
+.gacha-reel-slot { width: 120px; flex: 0 0 120px; height: 114px; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #fff; font-size: 16px; }
+.gacha-reel-slot img { width: 64px; height: 64px; image-rendering: pixelated; }
+.friend-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; padding: 14px; margin-bottom: 10px; }
+.friend-row .buttons { width: 100%; flex-wrap: wrap; }
+.online-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr)); gap: 10px; }
+.online-stats > div { display: flex; justify-content: space-between; gap: 12px; }
+.dialog.profile { overflow-y: auto; }
+.dialog.profile > * { flex-shrink: 0; }
+.trade-offers, .trade-animation { display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: 14px; }
+.trade-pokemon { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 12px; min-width: 120px; }
+.trade-pokemon img { width: 72px; height: 72px; image-rendering: pixelated; }
+.trade-history { display: flex; flex-wrap: wrap; gap: 10px; }
+.trade-animation > .trade-pokemon:first-child { animation: trade-send 1.8s ease-in-out both; }
+.trade-animation > .trade-pokemon:nth-child(2) { animation: trade-receive 1.8s ease-in-out both; }
+.trade-animation > b { flex-basis: 100%; text-align: center; }
+@keyframes trade-send { 0% { transform: none; } 45% { transform: translateX(45px) scale(.15); opacity: .2; } 100% { transform: none; opacity: 1; } }
+@keyframes trade-receive { 0% { transform: none; } 45% { transform: translateX(-45px) scale(.15); opacity: .2; } 100% { transform: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .trade-animation > .trade-pokemon { animation: none; } }
+.dialog.pc { max-height: calc(100dvh - 24px - var(--safe-t) - var(--safe-b)); overflow-y: auto; }
+.feature-panel, .collection-detail { min-width: 0; overflow-wrap: anywhere; }
+.room-config label { flex-wrap: wrap; }
 .room-notice { position: fixed; top: 75px; left: 50%; transform: translateX(-50%); max-width: 65vw; text-align: center; z-index: 8; font-size: 14px; color: #fff; text-shadow: 1px 1px #000; pointer-events: none; }
 @media (max-width: 700px) { .feature-panel { padding: 12px; }.collection-layout { grid-template-columns: 1fr; }.collection-grid { max-height: 36vh; grid-template-columns: repeat(auto-fill,minmax(70px,1fr)); }.collection-detail { flex-direction: row; flex-wrap: wrap; }.collection-detail p { width: 100%; }.room-notice { font-size: 12px; top: 100px; }.feature-screen .buttons { flex-wrap: wrap; } }
 @media (prefers-reduced-motion: reduce) { .gacha-card { animation: none; } }
