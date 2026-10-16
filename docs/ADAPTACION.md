@@ -16,6 +16,8 @@ Hay diez tickets iniciales y recompensas por tiempo, jefes y victoria en solitar
 
 Proyecto: `pokesurvivors`. Sitio independiente: `pkm-survivors-emegeaese`. La configuración web pública está en `src/firebase.ts`.
 
+Para un nuevo dominio hay que autorizarlo en dos lugares: Firebase Authentication → dominios autorizados y Google Cloud → restricciones de sitios web de la clave web. La clave actual permite `https://pkm-survivors-emegeaese.web.app` y `https://pkm-survivors-emegeaese.firebaseapp.com`, incluyendo sus rutas (`/*`). Se conservan los dominios anteriores y las restricciones de APIs. Un error `API_KEY_HTTP_REFERRER_BLOCKED` significa que falta esta segunda autorización, aunque Authentication ya tenga el dominio añadido. Comprueba el registro real desde el sitio publicado; los emuladores no reproducen estas restricciones.
+
 Se usan las cuentas existentes de Firebase Authentication con correo y contraseña. El registro y la recuperación de contraseña están en el juego. No hace falta cuenta para jugar en solitario; sí para salas y resultados online. Esta adaptación no modifica ni importa automáticamente los guardados del juego anterior, cuyo formato es diferente.
 
 Firestore usa `pkmSaves`, `pkmProfiles`, `pkmHandles`, `pkmStats`, `pkmStarts`, `pkmRuns`, `pkmBoards`, `pkmFollows` y `pkmFans`. Realtime Database usa `pkm2Rooms` y `pkm2Signals`. Los archivos `firebase.pkm.*` contienen los fragmentos añadidos; las reglas completas conservan las rutas anteriores.
