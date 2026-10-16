@@ -76,7 +76,7 @@ const starterBody = (entry: DexEntry & { source: { kind: 'starter' } }, locale: 
   )
   // A 2-stage line's second stage is already the final one.
   const stageName = m.pokedex.stageOf(i > 0 && i === s.line.length - 1 ? 2 : i)
-  return html`<p class="blurb">${stageName} · ${game.blurbs[id]}</p>
+  return html`<p class="blurb">${stageName} · ${id in game.blurbs ? game.blurbs[id as keyof typeof game.blurbs] : s.name}</p>
     ${isHatchling(id) && html`<p class="note">${m.pokedex.hatchNote(game.eggs.tiers[HATCHLINGS[id].egg])}</p>`}
     <h3>${m.pokedex.stats}</h3>
     ${statBars(entry, locale)}

@@ -161,7 +161,7 @@ export const createGame = (
  */
 export type StepInput = { move: Vec; special: boolean; mega?: boolean; lunge?: boolean }
 
-const updatePlayer = (g: Game, input: Vec, dt: number) => {
+export const updatePlayer = (g: Game, input: Vec, dt: number) => {
   const p = g.player
   const slow = specialSpeedFactor(g)
   const moving = slow > 0 && Math.abs(input.x) + Math.abs(input.y) > 0.05
@@ -203,7 +203,7 @@ const updatePlayer = (g: Game, input: Vec, dt: number) => {
  * Casts every move whose cooldown ran out. A manual move instead waits,
  * recharged, for a `press`, and holds it while the special moves the player.
  */
-const updateMoves = (g: Game, press: boolean, dt: number) => {
+export const updateMoves = (g: Game, press: boolean, dt: number) => {
   for (const owned of g.player.moves) {
     if (isManual(owned.id)) {
       owned.cooldown = Math.max(0, owned.cooldown - dt)
@@ -219,7 +219,7 @@ const updateMoves = (g: Game, press: boolean, dt: number) => {
 }
 
 /** After level-ups resolve: open the next level-up, start an evolution, or resume. */
-const advancePhase = (g: Game) => {
+export const advancePhase = (g: Game) => {
   if (g.pendingLevelUps > 0) {
     g.phase = 'levelup'
     g.offers = rollOffers(loadout(g), g.rng, 3)
@@ -258,7 +258,7 @@ export const skipLevelUp = (g: Game) => {
   advancePhase(g)
 }
 
-const updateEvolution = (g: Game, dt: number) => {
+export const updateEvolution = (g: Game, dt: number) => {
   const evo = g.evolution
   if (!evo) return
   evo.t += dt

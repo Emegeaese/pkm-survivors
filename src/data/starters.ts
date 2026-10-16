@@ -22,7 +22,7 @@ export type PlayableDef = {
   /** Moves this Pokémon can learn on level up (signature included). */
   learnset: readonly MoveId[]
   /** Two or three stages; the last one is the final evolution. */
-  line: readonly [EvolutionStage, EvolutionStage] | readonly [EvolutionStage, EvolutionStage, EvolutionStage]
+  line: readonly [EvolutionStage] | readonly [EvolutionStage, EvolutionStage] | readonly [EvolutionStage, EvolutionStage, EvolutionStage]
 }
 
 export type StarterDef = PlayableDef & { line: readonly [EvolutionStage, EvolutionStage, EvolutionStage] }

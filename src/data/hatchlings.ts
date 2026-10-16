@@ -1,7 +1,8 @@
 import type { EggTier } from '../game/eggs'
 import type { StatDelta } from '../game/stats'
-import { STARTER_IDS, STARTERS, type EvolutionStage, type PlayableDef, type StarterId } from './starters'
+import { STARTERS, type EvolutionStage, type PlayableDef, type StarterId } from './starters'
 import type { PokeType } from './types'
+import { catalogueOf, type CatalogueId } from './catalogue'
 
 /**
  * Playable families that hatch from eggs (`game/eggs.ts`), on top of the 27
@@ -608,11 +609,12 @@ export type HatchlingId = keyof typeof HATCHLINGS
 export const HATCHLING_IDS = Object.keys(HATCHLINGS) as HatchlingId[]
 
 /** Every Pokémon a run can start with: the starters plus the hatched families. */
-export const PLAYABLE = { ...STARTERS, ...HATCHLINGS }
+export const EXTRA_PLAYABLE = catalogueOf({ ...STARTERS, ...HATCHLINGS })
+export const PLAYABLE: Record<PlayableId, PlayableDef> = { ...STARTERS, ...HATCHLINGS, ...EXTRA_PLAYABLE }
 
-export type PlayableId = StarterId | HatchlingId
+export type PlayableId = StarterId | HatchlingId | CatalogueId
 
-export const PLAYABLE_IDS: readonly PlayableId[] = [...STARTER_IDS, ...HATCHLING_IDS]
+export const PLAYABLE_IDS = Object.keys(PLAYABLE) as PlayableId[]
 
 export const isHatchling = (id: PlayableId): id is HatchlingId => id in HATCHLINGS
 

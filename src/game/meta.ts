@@ -16,6 +16,7 @@ import { NO_SHINY_STARTERS, parseShinyStarters, type ShinyStarters } from './shi
 import type { StatDelta } from './stats'
 import type { RunSummary } from './tally'
 import type { Game } from './types'
+import { EMPTY_GACHA, parseGacha, runTickets, type Gacha } from './gacha'
 
 /**
  * Meta progression: Poké Dollars (₽) earned across runs and the Poké Mart's
@@ -94,6 +95,7 @@ export const SAVE_VERSION = 1
  * upgrades is additive.
  */
 export type Save = {
+  gacha: Gacha
   version: typeof SAVE_VERSION
   wallet: number
   ranks: Ranks
@@ -130,6 +132,7 @@ export type Save = {
 }
 
 export const EMPTY_SAVE: Save = {
+  gacha: EMPTY_GACHA,
   version: SAVE_VERSION,
   wallet: 0,
   ranks: NO_RANKS,
@@ -187,6 +190,7 @@ export const parseSaveData = (json: unknown): Save => {
   return {
     version: SAVE_VERSION,
     wallet: wholeNumber(data.wallet),
+    gacha: parseGacha(data.gacha),
     ranks: Object.fromEntries(UPGRADE_IDS.map((id) => [id, wholeNumber(ranks[id], UPGRADES[id].maxRank)])) as Record<UpgradeId, number>,
     dex: parseDex(data.dex),
     eggs: parseEggs(data.eggs),
@@ -305,6 +309,7 @@ const settle = (save: Save, m: Progress, a: Medals, eggRoom: number) => {
  * can still take (`EGGS.perRun` minus the eggs it found or got already).
  */
 export const recordRun = (save: Save, summary: RunSummary, before: RunSummary | null, date: Date, eggRoom: number = EGGS.perRun) => {
+  save = { ...save, gacha: { ...save.gacha, earned: save.gacha.earned + Math.max(0, runTickets(summary) - (before ? runTickets(before) : 0)) } }
   const m = recordMissions(save.missions, summary, before, date)
   return settle(save, m, recordAchievements(save.achievements, summary, before, m.completed.length, save.dex), eggRoom)
 }

@@ -27,6 +27,7 @@ jobs:
             server/package-lock.json
       - run: npm ci
       - run: npm test
+      - run: npm run test:rooms
       - run: npm run build
       # The accounts API typechecks with the shared game code it bundles.
       - run: npm ci --prefix server

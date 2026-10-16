@@ -5388,3 +5388,35 @@ a.btn.dex-site {
     padding: 6px 12px;
   }
 }
+/* Collection, ticket gacha and private room screens. */
+.feature-screen { overflow: auto; padding: 24px 12px; align-items: flex-start; }
+.feature-panel { width: min(1100px, 96vw); padding: 22px; margin: auto; display: flex; flex-direction: column; gap: 14px; max-height: none; }
+.feature-panel h1 { font-size: clamp(14px, 3vw, 24px); line-height: 1.8; }
+.feature-panel h1, .feature-panel h2, .feature-panel p { margin: 0; }
+.room-playing .room-exit { color: var(--ink); }
+.feature-panel p, .feature-panel small { line-height: 1.5; }
+.feature-tools, .room-config { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+.feature-panel input:not([type=checkbox]), .feature-panel select { background: #15253b; color: #f5f5e6; border: 2px solid #657696; padding: 10px; max-width: 100%; font: inherit; font-size: 18px; }
+.feature-panel input[type=search] { flex: 1; min-width: 180px; }
+.feature-panel label { display: flex; gap: 8px; align-items: center; }
+.collection-layout { display: grid; grid-template-columns: 1fr 280px; gap: 16px; }
+.collection-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(88px, 1fr)); gap: 6px; align-content: start; max-height: 58vh; overflow: auto; padding: 4px; }
+.collection-cell { background: #203951; border: 2px solid #637b91; color: #fff; display: flex; align-items: center; flex-direction: column; padding: 8px 2px; font: inherit; font-size: 15px; cursor: pointer; min-height: 80px; }
+.collection-cell img { width: 40px; height: 40px; image-rendering: pixelated; }
+.collection-cell.locked img { filter: grayscale(1) brightness(.5); }
+.collection-cell.selected { border-color: #ffe06a; background: #36516c; }
+.collection-detail { padding: 16px; display: flex; flex-direction: column; gap: 12px; align-items: flex-start; overflow-wrap: anywhere; }
+.collection-detail h2 { font-size: 18px; line-height: 1.5; }
+.collection-portrait { width: 80px; height: 80px; image-rendering: pixelated; }
+.gacha-prizes, .gacha-results, .room-players { display: flex; justify-content: center; flex-wrap: wrap; gap: 12px; }
+.gacha-prizes > div, .gacha-card, .room-player { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 12px; }
+.gacha-prizes img, .gacha-card img, .room-player img { width: 64px; height: 64px; image-rendering: pixelated; }
+.gacha-card { min-width: 130px; animation: gacha-reveal .35s both; border-color: #9fb1c9; }
+.gacha-card.rarity-2 { border-color: #5fe08a; }.gacha-card.rarity-3 { border-color: #4fb4ff; }.gacha-card.rarity-4 { border-color: #c47bff; }.gacha-card.rarity-5 { border-color: #ffcb3d; box-shadow: 0 0 15px #ffcb3d55; }
+@keyframes gacha-reveal { from { opacity: 0; transform: translateY(10px) scale(.9); } to { opacity: 1; transform: none; } }
+.room-config { flex-direction: column; align-items: stretch; }.room-config label { justify-content: space-between; }.room-config input:not([type=checkbox]), .room-config select { width: 65%; }
+.room-panel { max-width: 760px; }.room-playing { padding: 0; pointer-events: none; }.room-playing .room-exit { pointer-events: auto; position: fixed; right: 12px; top: 60px; z-index: 12; font-size: 12px; }
+.room-team { position: fixed; left: 50%; transform: translateX(-50%); bottom: 8px; z-index: 8; font-size: 14px; padding: 8px; pointer-events: none; max-width: 90vw; }
+.room-notice { position: fixed; top: 75px; left: 50%; transform: translateX(-50%); max-width: 65vw; text-align: center; z-index: 8; font-size: 14px; color: #fff; text-shadow: 1px 1px #000; pointer-events: none; }
+@media (max-width: 700px) { .feature-panel { padding: 12px; }.collection-layout { grid-template-columns: 1fr; }.collection-grid { max-height: 36vh; grid-template-columns: repeat(auto-fill,minmax(70px,1fr)); }.collection-detail { flex-direction: row; flex-wrap: wrap; }.collection-detail p { width: 100%; }.room-notice { font-size: 12px; top: 100px; }.feature-screen .buttons { flex-wrap: wrap; } }
+@media (prefers-reduced-motion: reduce) { .gacha-card { animation: none; } }

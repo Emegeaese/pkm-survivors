@@ -21,6 +21,8 @@ import { formatNumber, formatPokeDollars, t, type Messages } from '../i18n'
 import { h, later } from './dom'
 
 export type Screen = {
+  /** A network session supplies its current game for music and controller input. */
+  playing?: () => Game | null
   el: HTMLElement
   tick?: (t: number) => void
   dispose: () => void

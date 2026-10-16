@@ -2,7 +2,7 @@ import type { SpecialId } from '../game/special'
 import type { StatDelta } from '../game/stats'
 import type { StatusSpec } from '../game/status'
 import type { WeatherId } from './biomes'
-import type { PlayableId } from './hatchlings'
+import { PLAYABLE, type PlayableId } from './hatchlings'
 
 /**
  * Mega Evolutions: the final stage of a line with a Mega can Mega Evolve once
@@ -347,7 +347,9 @@ export type MegaLine = (typeof MEGAS)[MegaId]['line']
 export const MEGA_LINES = [...new Set(MEGA_IDS.map((id) => MEGAS[id].line))]
 
 /** The Mega Evolutions of a line, in data order (empty for the lines without one). Charizard, Raichu, Garchomp and Lucario have two. */
-export const megasOf = (line: PlayableId): readonly MegaId[] => MEGA_IDS.filter((id) => MEGAS[id].line === line)
+export const megasOf = (line: PlayableId): readonly MegaId[] => MEGA_IDS.filter((id) =>
+  MEGAS[id].line === line || (line.startsWith('dex') && PLAYABLE[MEGAS[id].line].line.at(-1)!.dex === PLAYABLE[line].line[0].dex),
+)
 
 /** Timing and the burst of a Mega Evolution, in seconds and world px. */
 export const MEGA = {

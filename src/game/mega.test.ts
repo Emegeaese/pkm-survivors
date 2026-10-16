@@ -37,6 +37,13 @@ describe('mega data', () => {
     expect(resolveSpecial('charmander', 2, 'charizardY').id).toBe('heatWave')
     expect(resolveSpecial('charmander', 2).id).toBe('blastBurn')
   })
+  it('lets a final evolution unlocked directly in gacha use its Mega forms', () => {
+    expect(megasOf('dex6')).toEqual(['charizardX', 'charizardY'])
+    const g = createGame('dex6', { w: 480, h: 270 }, 1)
+    grantStone(g, 'charizardX')
+    expect(g.mega.stone).toBe('charizardX')
+    expect(isFinalStage(g.starter, 0)).toBe(true)
+  })
 })
 
 describe('mega timers', () => {

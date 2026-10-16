@@ -76,18 +76,19 @@ export const dropMegaStones = (g: Game, x: number, y: number) => {
   const ids = megasOf(g.starter)
   ids.forEach((mega, i) => {
     const dx = ids.length > 1 ? (i - (ids.length - 1) / 2) * STONE_GAP : 0
-    g.pickups.push({ id: g.nextId++, x: x + dx, y, vx: 0, vy: 0, attracted: false, age: 0, kind: 'megaStone', mega })
+    g.pickups.push({ id: g.nextId++, x: x + dx, y, vx: 0, vy: 0, attracted: false, age: 0, kind: 'megaStone', mega, ...(g.trainerId ? { owner: g.trainerId } : {}) })
   })
   if (ids.length > 1) g.events.push({ kind: 'megaChoice' })
 }
 
 /** A Mega Stone was picked up: it picks the Mega, the others on the ground crumble, and Mega Evolution is ready from the final stage on. */
 export const grantStone = (g: Game, mega: MegaId) => {
-  if (g.mega.stone || MEGAS[mega].line !== g.starter) return
+  if (g.mega.stone || !megasOf(g.starter).includes(mega)) return
   g.mega.stone = mega
   g.mega.charge = 0
   for (const k of g.pickups) {
     if (k.kind !== 'megaStone' || k.mega === mega || k.age < 0) continue
+    if (k.owner !== g.trainerId) continue
     burst(g, k.x, k.y, { colors: ['#a8a0b8', '#686078', '#ffffff'], count: 14, speed: 60, ttl: 0.5, gravity: 60 })
     k.age = -1
   }

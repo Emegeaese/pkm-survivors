@@ -154,6 +154,8 @@ const block = (g: Game, o: Pos, r: number) => {
   return hit
 }
 
+export const blockPlayer = (g: Game) => block(g, g.player, g.player.radius)
+
 /** Whether a circle at (x, y) overlaps any solid. */
 export const inSolid = (g: Game, x: number, y: number, r: number) => featuresNear(g, x, y, r).some((f) => f.solids.some((s) => inside(s.foot, x, y, r)))
 

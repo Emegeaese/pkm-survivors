@@ -1,8 +1,8 @@
 import type { Locale } from '../i18n'
 
-export const SITE_URL = 'https://www.pokemonsurvivors.com'
+export const SITE_URL = (import.meta.env?.VITE_SITE_URL || 'http://localhost:8787').replace(/\/$/, '')
 
-export const REPO_URL = 'https://github.com/pedrobarretto/pokemon-survivors'
+export const REPO_URL = 'https://github.com/Emegeaese/pkm-survivors'
 
 /**
  * Every public URL, per language. `play` is the game itself (`index.html`,

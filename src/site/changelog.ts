@@ -38,6 +38,14 @@ export const CHANGELOG: readonly ChangelogEntry[] = [
   },
   {
     date: '2026-10-15',
+    title: { pt: 'PKM Survivors: amigos, versus e gacha', en: 'PKM Survivors: friends, versus and ticket gacha' },
+    notes: [
+      { pt: 'Salas privadas de 2–4 jogadores para cooperativo e versus; experiência compartilhada, reanimação, fendas e modo sem fim em equipe.', en: 'Private rooms for 2–4 players in cooperative and versus modes; shared EXP, revival, rifts and team endless mode.' },
+      { pt: '568 Pokémon jogáveis, desbloqueados no gacha de tickets por região, com sorteios ×1/×10, garantias e variantes brilhantes disponíveis.', en: '568 playable Pokémon unlocked through regional ticket gacha, with ×1/×10 draws, guarantees and available shiny variants.' },
+    ],
+  },
+  {
+    date: '2026-10-15',
     pr: 60,
     title: { pt: 'Traga amigos: convites, Presente Misterioso e Munchlax', en: 'Bring friends: invites, Mystery Gifts and Munchlax' },
     notes: [

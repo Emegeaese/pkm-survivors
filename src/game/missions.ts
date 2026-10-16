@@ -2,8 +2,7 @@ import { createRng, pick, seedFrom, type Rng } from '../engine/rng'
 import type { BagItem } from './bag'
 import type { EggTier } from './eggs'
 import { DAILY_POOL, MISSION_SLOTS, WEEKLY_POOL, type MissionGoal, type MissionPeriod, type MissionTemplate } from '../data/missions'
-import { isHatchling } from '../data/hatchlings'
-import { STARTERS } from '../data/starters'
+import { STARTERS, STARTER_IDS } from '../data/starters'
 import type { PokeType } from '../data/types'
 import { overtime } from './endless'
 import { isRecord, wholeNumber } from './parse'
@@ -69,7 +68,7 @@ export const BEST_GOALS: ReadonlySet<MissionGoal['kind']> = new Set(['survive', 
 
 /** No type: any Pokémon. With a type: a starter of that type (hatched families don't count, like the goal text says). */
 const starterIs = (s: RunSummary, type: PokeType | undefined) =>
-  !type || (!isHatchling(s.starter) && STARTERS[s.starter].line[0].types.some((t) => t === type))
+  !type || STARTER_IDS.some((id) => id === s.starter && STARTERS[id].line[0].types.some((t) => t === type))
 
 /** What a run is worth towards a goal. */
 export const goalValue = (goal: MissionGoal, s: RunSummary): number => {

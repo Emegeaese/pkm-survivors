@@ -196,3 +196,14 @@ export const updateHazards = (g: Game, dt: number) => {
   }
   retain(g.hazards, (h) => h.age < h.ttl)
 }
+
+/** Player-only overlap checks, after the shared world's hazards moved once. */
+export const touchHazards = (g: Game) => {
+  const p = g.player
+  for (const h of g.hazards) {
+    if (h.age < h.armAt || h.age > h.disarmAt || h.age >= h.ttl) continue
+    if (dm.sq(h.x - p.x) + dm.sq(h.y - p.y) >= dm.sq(h.r + p.radius * 0.7)) continue
+    hurtPlayer(g, h.damage, undefined, HAZARD_TYPES[h.visual])
+    if (h.vanishOnHit) h.age = h.ttl
+  }
+}

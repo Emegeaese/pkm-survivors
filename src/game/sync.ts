@@ -9,6 +9,7 @@ import { SAVE_VERSION, totalSpent, UPGRADE_IDS, type Ranks, type Save, type Upgr
 import { mergeMissions } from './missions'
 import { mergeRibbons } from './ribbons'
 import { mergeShinyStarters } from './shinyStarters'
+import { mergeGacha } from './gacha'
 
 /**
  * Account sync rules, shared by the game and the API (`server/`): how two
@@ -49,6 +50,7 @@ export const mergeSaves = (base: Save, incoming: Save): Save => {
   const spent = Math.max(base.spent, incoming.spent)
   return {
     version: SAVE_VERSION,
+    gacha: mergeGacha(base.gacha, incoming.gacha),
     wallet: Math.max(0, Math.max(worth(base), worth(incoming)) - totalSpent(ranks) - spent),
     ranks,
     dex: mergeDex(base.dex, incoming.dex),

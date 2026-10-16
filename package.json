@@ -1,18 +1,21 @@
 {
-  "name": "pokemon-survivors",
+  "name": "pkm-survivors",
   "private": true,
   "version": "0.1.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit && vite build",
+    "build": "npm run catalogue && tsc --noEmit && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "roster": "node scripts/roster.mjs",
     "assets": "node scripts/fetch-assets.mjs",
     "credits": "node scripts/credits.mjs",
-    "bodies": "node scripts/bodies.mjs"
+    "bodies": "node scripts/bodies.mjs",
+    "multiplayer": "node server/rooms.mjs",
+    "test:rooms": "node --test server/rooms.integration.mjs",
+    "catalogue": "node scripts/catalogue.mjs"
   },
   "devDependencies": {
     "typescript": "^7.0.2",
@@ -22,15 +25,18 @@
   "dependencies": {
     "@clerk/clerk-js": "^6.39.0",
     "@fontsource/press-start-2p": "^5.3.0",
-    "@fontsource/vt323": "^5.3.0"
+    "@fontsource/vt323": "^5.3.0",
+    "ws": "^8.22.0"
   },
   "license": "MIT",
-  "homepage": "https://www.pokemonsurvivors.com",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/pedrobarretto/pokemon-survivors.git"
+    "url": "git+https://github.com/Emegeaese/pkm-survivors.git"
   },
   "bugs": {
-    "url": "https://github.com/pedrobarretto/pokemon-survivors/issues"
+    "url": "https://github.com/Emegeaese/pkm-survivors/issues"
+  },
+  "engines": {
+    "node": ">=24"
   }
 }

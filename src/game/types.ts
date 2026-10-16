@@ -233,7 +233,7 @@ export type Pickup = {
   /** True once it's being pulled into the player. */
   attracted: boolean
   age: number
-} & ({ kind: 'xp'; value: number } | { kind: 'coin'; value: number } | { kind: 'berry' } | { kind: 'pokeball' } | { kind: 'megaStone'; mega: MegaId } | { kind: 'consumable'; item: ConsumableId })
+} & ({ kind: 'xp'; value: number } | { kind: 'coin'; value: number } | { kind: 'berry' } | { kind: 'pokeball' } | { kind: 'megaStone'; mega: MegaId; owner?: string } | { kind: 'consumable'; item: ConsumableId })
 
 export type Particle = {
   x: number
@@ -342,6 +342,10 @@ export type Buff = { id: BuffId; left: number; total: number }
 export type Evolution = { from: number; to: number; t: number }
 
 export type Game = {
+  /** Network co-op only: shared EXP counter and live targets. Absent in solo replays. */
+  partyXp?: number
+  partyTargets?: Player[]
+  trainerId?: string
   /** The Pokémon this run plays: a starter or a hatched family. */
   starter: PlayableId
   /** Multipliers this run plays with (`difficulty.ts`). */

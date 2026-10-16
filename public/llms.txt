@@ -1,3 +1,9 @@
+# PKM Survivors — Emegeaese adaptation
+
+568 playable species from the shipped assets, unlocked with ticket gacha (nine regional banners, shiny variants, ten-pull guarantee and 70-draw pity). Private 2–4 player cooperative and versus rooms through the Node WebSocket relay. Three free Kanto starters; tickets earned by playing. See docs/ADAPTACION.md in https://github.com/Emegeaese/pkm-survivors for setup and limitations.
+
+Original game reference (upstream features below):
+
 # Pokémon Survivors
 
 > A free, unofficial Vampire Survivors-style Pokémon fan game (action roguelite / bullet heaven) that runs in the browser and on phones, with no download, no sign-up, no ads and no purchases. Available in English and Brazilian Portuguese. Made by Pedro Barretto; open source on GitHub.

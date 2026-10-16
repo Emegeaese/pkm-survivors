@@ -56,6 +56,7 @@ const collect = (g: Game, pickup: Pickup) => {
   const p = g.player
   switch (pickup.kind) {
     case 'xp':
+      if (g.partyXp !== undefined) g.partyXp += pickup.value
       gainXp(g, pickup.value)
       g.events.push({ kind: 'pickup' })
       break
@@ -93,7 +94,7 @@ const collect = (g: Game, pickup: Pickup) => {
 /** Mega Stones on the ground: two or more means the player is choosing one, so the magnet leaves them be. */
 const megaStones = (g: Game) => {
   let n = 0
-  for (const k of g.pickups) if (k.kind === 'megaStone') n++
+  for (const k of g.pickups) if (k.kind === 'megaStone' && (!k.owner || k.owner === g.trainerId)) n++
   return n
 }
 
@@ -102,6 +103,7 @@ export const updatePickups = (g: Game, dt: number) => {
   const magnet2 = dm.sq(p.stats.magnet)
   const choosing = megaStones(g) > 1
   for (const k of g.pickups) {
+    if (k.kind === 'megaStone' && k.owner && k.owner !== g.trainerId) continue
     k.age += dt
     const d2 = dm.sq(k.x - p.x) + dm.sq(k.y - (p.y - 6))
     if (choosing && k.kind === 'megaStone') {

@@ -154,5 +154,5 @@ export const pendingEvolution = (g: Game) => {
   const line = PLAYABLE[g.starter].line
   const stage = line[g.player.stage]
   const next = line[g.player.stage + 1]
-  return stage && next && 'evolveAt' in stage && g.player.level >= stage.evolveAt ? { from: stage.dex, to: next.dex } : null
+  return stage && next && stage.evolveAt !== undefined && g.player.level >= stage.evolveAt ? { from: stage.dex, to: next.dex } : null
 }

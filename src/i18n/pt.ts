@@ -28,7 +28,7 @@ export type ContentTexts = {
   /** Pickup toast line, shown after the item name. */
   consumables: Record<ConsumableId, string>
   /** One-liner under the Pokémon's name in the inspect panel. */
-  blurbs: Record<PlayableId, string>
+  blurbs: Partial<Record<PlayableId, string>>
   /** Special attacks: what each one does, by `SPECIALS` id. */
   specials: Record<SpecialId, string>
 }
@@ -1517,4 +1517,4 @@ export const pt = {
   } satisfies Record<TraitId, (name: string) => string>,
 } satisfies ContentTexts & Record<string, unknown>
 
-export type Messages = typeof pt
+export type Messages = Omit<typeof pt, 'blurbs'> & Pick<ContentTexts, 'blurbs'>

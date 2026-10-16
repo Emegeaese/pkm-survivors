@@ -15,6 +15,7 @@ import { languageSwitch } from './language'
 import { titleBadge } from './missions'
 import { loadSave, outbreakToday } from './save'
 import { menu, type Screen } from './screens'
+import { featureText } from '../i18n/features'
 
 /** Static site pages, one URL per language (they live outside the game bundle). */
 const SITE_PAGES = {
@@ -22,9 +23,11 @@ const SITE_PAGES = {
   en: { guide: '/en/guide/', legal: '/en/legal/' },
 } as const satisfies Record<Locale, Record<string, string>>
 
-const GITHUB_URL = 'https://github.com/pedrobarretto/pokemon-survivors'
+const GITHUB_URL = 'https://github.com/Emegeaese/pkm-survivors'
 
 export type TitleActions = {
+  friends: () => void
+  gacha: () => void
   play: () => void
   /** Opens the Desafio do dia. */
   challenge: () => void
@@ -129,6 +132,8 @@ export const titleScreen = (root: HTMLElement, input: Input, actions: TitleActio
   const { settings, account, ranking } = actions
   const items = [
     { label: m.play, run: actions.play },
+    { label: featureText().friends, run: actions.friends },
+    { label: featureText().gacha, run: actions.gacha },
     { label: m.challenge, run: actions.challenge },
     { label: m.incubator, run: actions.incubator },
     { label: m.missions, run: actions.missions },

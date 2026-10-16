@@ -1,6 +1,6 @@
 import { execSync } from 'node:child_process'
 import { resolve } from 'node:path'
-import { defineConfig, runnerImport, type Plugin } from 'vite'
+import { defineConfig, loadEnv, runnerImport, type Plugin } from 'vite'
 
 type Site = typeof import('./src/site/index.ts')
 
@@ -71,12 +71,18 @@ const gameVersion = () => {
 }
 
 // One page per language for the game (index.html, en/index.html); the site pages are added by `sitePages`.
-export default defineConfig({
-  plugins: [sitePages()],
+export default defineConfig(({ mode }) => ({
+  plugins: [sitePages(), {
+    name: 'fork-site-identity',
+    transformIndexHtml(html) {
+      const origin = (loadEnv(mode, process.cwd(), 'VITE_').VITE_SITE_URL || 'http://localhost:8787').replace(/\/$/, '')
+      return html.replaceAll('https://www.pokemonsurvivors.com', origin)
+    },
+  }],
   define: { __GAME_VERSION__: JSON.stringify(gameVersion()) },
   build: {
     rolldownOptions: {
       input: { main: 'index.html', en: 'en/index.html' },
     },
   },
-})
+}))

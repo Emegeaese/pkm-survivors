@@ -82,7 +82,9 @@ import { isSettingsOpen, openSettings, settings, toggleMute } from './ui/setting
 import { mapEventFeedback } from './ui/mapEvents'
 import { runShare, sharePreview, trainerShare } from './ui/share'
 import { martButton, shop } from './ui/shop'
-import { starterSelect } from './ui/starterSelect'
+import { catalogueSelect, gachaScreen } from './ui/catalogue'
+import { multiplayerScreen } from './ui/multiplayer'
+import { ownsPokemon } from './game/gacha'
 import { titleButton, titleScreen } from './ui/title'
 import { banner, clearToasts, tickToasts, toast } from './ui/toasts'
 
@@ -228,6 +230,8 @@ const showTitle = (opts: { intro?: boolean; focus?: number } = {}) => {
   endRun()
   setScreen(
     titleScreen(ui, input, {
+      friends: () => showFriends(),
+      gacha: () => showGacha(),
       play: () => (accountsEnabled && !playingAsGuest && accountState().kind === 'guest' ? showPlayGate() : showMenu()),
       challenge: () => showChallenge(),
       incubator: () => showIncubator(() => showTitle({ focus: 2 })),
@@ -261,9 +265,10 @@ const showPlayGate = () =>
 /** Pokémon select, with the Poké Mart (top right) and the way back to the title (top left). */
 const showMenu = (initial: PlayableId = lastStarter) => {
   endRun()
-  const select = starterSelect(ui, input, {
+  const select = catalogueSelect(ui, input, {
     pick: (id) => setTimeout(() => void startRun(id), 250),
     incubator: () => showIncubator(() => showMenu(select.selected())),
+    gacha: () => showGacha(() => showMenu(select.selected())),
   }, initial)
   const closeMart = martButton(ui, input, () => showShop())
   const closeBack = titleButton(ui, input, () => showTitle())
@@ -271,6 +276,9 @@ const showMenu = (initial: PlayableId = lastStarter) => {
 }
 
 const showShop = () => setScreen(shop(ui, input, () => showMenu()))
+
+const showGacha = (back: () => void = () => showTitle()) => setScreen(gachaScreen(ui, input, back))
+const showFriends = () => { endRun(); setScreen(multiplayerScreen(ui, input, ctx, view, () => showTitle())) }
 
 /** The Caixa do PC (from the Pokédex); its Trainer Card stands the last Pokémon played beside the trainer. */
 const showPcBox = (back: () => void) =>
@@ -469,6 +477,7 @@ const openingDex = (plan: RunPlan) => rosterSchedule(plan.roster).flatMap((s) =>
  * next run's opening.
  */
 const startRun = async (starter: PlayableId, daily: ChallengeRun | null = null) => {
+  if (!daily && !ownsPokemon(loadSave(), starter)) return showGacha()
   setScreen(null)
   endRun()
   const c = daily?.challenge ?? null
@@ -872,11 +881,11 @@ const weatherToast = (next: WeatherId, prev: WeatherId) => {
 /* ---------------- Music ---------------- */
 
 /** Silence until "press start", then menus play the village theme, a run its biome's theme, and a living boss takes over until it falls. */
-const themeFor = (r: Run | null): ThemeId | null => {
+const themeFor = (g: Game | null): ThemeId | null => {
   if (!pressedStart) return null
-  if (!r || r.game.phase === 'gameover' || r.game.phase === 'victory') return 'menu'
+  if (!g || g.phase === 'gameover' || g.phase === 'victory') return 'menu'
   // A rift arena keeps the boss theme until the player is back, loot window included.
-  return r.game.bossId !== null || r.game.rift.arena !== null ? 'boss' : BIOMES[r.game.biome.id].theme
+  return g.bossId !== null || g.rift.arena !== null ? 'boss' : BIOMES[g.biome.id].theme
 }
 
 /* ---------------- Global keys ---------------- */
@@ -969,6 +978,11 @@ const frame = (now: number) => {
       }
     }
   } else {
+    if (screen?.playing?.()) {
+      if (padA()) input.press('Space')
+      if (padY()) input.press('KeyE')
+      if (padX()) input.press('ShiftLeft')
+    }
     // Attract mode: wild Pokémon stroll through the meadow behind the menus.
     stepTitleScene(scene, dt, view.w, view.h)
     drawTitleScene(ctx, scene, view.w, view.h)
@@ -978,7 +992,7 @@ const frame = (now: number) => {
     tickToasts(ui, dt, false)
   }
   screen?.tick?.(t)
-  playTheme(themeFor(run))
+  playTheme(themeFor(run?.game ?? screen?.playing?.() ?? null))
   // Ducked under the pause menu, but at full level while the player tunes the volume.
   duckMusic(run?.game.phase === 'paused' && !isSettingsOpen())
   requestAnimationFrame(frame)
@@ -1025,6 +1039,7 @@ const boot = () => {
   const shared = rankingEnabled ? parseHandle(new URLSearchParams(location.search).get(PROFILE_PARAM)) : null
   if (shared) showSharedProfile(shared)
   // Back from signing in, the player already pressed start before leaving: straight to the menu.
+  else if (new URLSearchParams(location.search).has('room')) showFriends()
   else showTitle({ intro: !backFromSignIn() })
   requestAnimationFrame(frame)
   void preloadInBackground()

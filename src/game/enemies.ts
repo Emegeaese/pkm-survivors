@@ -99,6 +99,7 @@ export const updateEnemies = (g: Game, dt: number) => {
   const recycleDist = dm.hypot(g.view.w, g.view.h) * 0.85
 
   for (const e of g.enemies) {
+    const p = g.partyTargets?.reduce((near, p) => p.hp > 0 && dm.sq(p.x - e.x) + dm.sq(p.y - e.y) < dm.sq(near.x - e.x) + dm.sq(near.y - e.y) ? p : near, g.player) ?? g.player
     if (e.dying >= 0) {
       e.dying += dt
       if (e.fled) {
