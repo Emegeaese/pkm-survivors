@@ -1,4 +1,11 @@
 {
+  "pkmPresence": {
+    ".read": true,
+    "$uid": {
+      ".write": "auth != null && auth.uid === $uid",
+      ".validate": "newData.isBoolean()"
+    }
+  },
   "pkm2Rooms": {
     "$room": {
       ".read": "auth != null && (!data.exists() || data.child('m').child(auth.uid).exists())",

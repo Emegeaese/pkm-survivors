@@ -13,6 +13,8 @@ import { accountChip } from './account'
 import { h, later, rich } from './dom'
 import { languageSwitch } from './language'
 import { titleBadge } from './missions'
+import { watchOnline } from '../firebasePresence'
+import { socialText } from '../i18n/social'
 import { loadSave, outbreakToday } from './save'
 import { menu, type Screen } from './screens'
 import { featureText } from '../i18n/features'
@@ -166,7 +168,9 @@ export const titleScreen = (root: HTMLElement, input: Input, actions: TitleActio
   )
   const badge = titleBadge(loadSave().title)
   const outbreak = outbreakBanner()
-  const head = h('div', { class: 'title-head' }, logo, badge, outbreak.el)
+  const online = h('p', { class: 'online-count hidden', role: 'status' })
+  const stopOnline = watchOnline((n) => { online.textContent = socialText().online(n); online.classList.toggle('hidden', n < 1) })
+  const head = h('div', { class: 'title-head' }, logo, badge, outbreak.el, online)
   inviteBanner(head, account ? () => openOver(account) : null)
   const el = h('div', { class: 'screen title-home' }, h('h1', { class: 'sr-only' }, 'Pokémon Survivors'), head, prompt, footer)
 
@@ -229,7 +233,7 @@ export const titleScreen = (root: HTMLElement, input: Input, actions: TitleActio
     el,
     dim: 0.12,
     tick: (time: number) => (overScreen?.tick?.(time), outbreak.tick(time), logo.width > 1 && fitLogo(logo)),
-    dispose: () => (overScreen?.dispose(), offIntro?.(), nav?.off(), closeLanguage?.(), closeAccount?.(), el.remove()),
+    dispose: () => (stopOnline(), overScreen?.dispose(), offIntro?.(), nav?.off(), closeLanguage?.(), closeAccount?.(), el.remove()),
   }
 }
 

@@ -19,6 +19,24 @@ export type ChangelogEntry = {
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
     date: '2026-10-16',
+    title: { pt: 'Jogar com amigos: duelo 1 contra 1, perfil e visual', en: 'Playing with friends: 1v1 duels, profile and visuals' },
+    notes: [
+      {
+        pt: 'Duelo 1 contra 1: uma sala versus só para dois jogadores. No cooperativo, os inimigos agora se dividem entre os jogadores, em vez de todos irem atrás de um só.',
+        en: 'Duels: a versus room for just two players. In co-op, enemies now split between the players instead of all chasing one.',
+      },
+      {
+        pt: 'No cooperativo, a vida e o nome dos companheiros ficam mais claros e setas na borda da tela mostram onde cada um está. O botão de sair não cobre mais outros controles, e o modo horizontal no celular foi ajustado.',
+        en: 'In co-op, the health and names of your teammates are clearer, and arrows on the screen edge show where each one is. The leave button no longer covers other controls, and landscape mode on phones was fixed.',
+      },
+      {
+        pt: 'O perfil mostra os amigos e aceita um Pokémon como fundo; o ranking ficou mais legível e o menu mostra quantos treinadores estão online.',
+        en: 'Profiles show friends and accept any Pokémon as a background; the ranking is easier to read and the menu shows how many trainers are online.',
+      },
+    ],
+  },
+  {
+    date: '2026-10-16',
     pr: 61,
     title: { pt: 'Competir: Desafio do dia e fitas', en: 'Compete: the Daily Challenge and ribbons' },
     notes: [

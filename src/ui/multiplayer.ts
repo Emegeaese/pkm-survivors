@@ -11,7 +11,7 @@ import { rosterSchedule } from '../game/roster'
 import { render } from '../render/draw'
 import { progressArc } from '../render/mapEvents'
 import { drawJoystick } from '../render/joystick'
-import { drawPokemon, loadAll, preloadShinies, sprites, streamSpecies } from '../render/sprites'
+import { drawPokemon, portraitUrl, loadAll, preloadShinies, sprites, streamSpecies } from '../render/sprites'
 import { playSfx, unlockAudio } from '../engine/audio'
 import { accountState, accountUserId } from '../account'
 import { accountScreen } from './account'
@@ -19,6 +19,7 @@ import { friendsScreen } from './friends'
 import { socialText } from '../i18n/social'
 import { publishSocialStats } from '../firebaseSocial'
 import { createFirebaseRoomConnection, type RoomConnection } from '../network/firebaseRooms'
+import { createDevRoomConnection } from '../network/devRoom'
 import { firebaseText } from '../i18n/firebase'
 import { startTeamRanking, finishTeamRanking } from '../firebaseRanking'
 import { runResult } from '../game/ranking'
@@ -38,6 +39,7 @@ const store = (key: string, value: string) => { try { localStorage.setItem(key, 
 export const multiplayerScreen = (root: HTMLElement, input: Input, ctx: CanvasRenderingContext2D, view: { w: number; h: number }, back: () => void): Screen => {
   const m = featureText(), save = loadSave(), params = new URLSearchParams(location.search)
   const f = firebaseText(), account = accountState()
+  const devRoom = import.meta.env.DEV ? params.get('devroom') : null
   const name = h('input', { value: account.kind === 'signedIn' ? account.name : readStorage('pkm:trainer', 'Trainer'), maxlength: 24, 'aria-label': m.name })
   const code = h('input', { value: params.get('room')?.slice(0, 6) ?? '', maxlength: 6, placeholder: m.code, 'aria-label': m.code, autocapitalize: 'characters' })
   const pokemon = h('select', { 'aria-label': m.collection }, ...PLAYABLE_IDS.filter((id) => ownsPokemon(save, id)).sort((a, b) => PLAYABLE[a].line[0].dex - PLAYABLE[b].line[0].dex).map((id) => h('option', { value: id, selected: id === 'charmander' }, PLAYABLE[id].name)))
@@ -62,7 +64,8 @@ export const multiplayerScreen = (root: HTMLElement, input: Input, ctx: CanvasRe
   const spectator = h('div', { class: 'room-spectator box hidden' },
     h('button', { class: 'btn', 'aria-label': m.previousPlayer, onclick: () => cycleWatch(-1) }, '◀'),
     watchName, h('button', { class: 'btn', 'aria-label': m.nextPlayer, onclick: () => cycleWatch(1) }, '▶'))
-  const team = h('div', { class: 'room-team box hidden' }), notice = h('p', { class: 'room-notice hidden', role: 'status' })
+  const cards = new Map<string, { card: HTMLElement; fill: HTMLElement; hp: HTMLElement }>()
+  const team = h('div', { class: 'room-team hidden' }), notice = h('p', { class: 'room-notice hidden', role: 'status' })
   root.append(team, notice, spectator)
   const send = (data: object) => { if (ws?.readyState === 1) ws.send(JSON.stringify(data)) }
   const disconnect = () => { const old = ws; ws = null; old?.close(); if (timeout) clearTimeout(timeout); timeout = null }
@@ -155,12 +158,12 @@ export const multiplayerScreen = (root: HTMLElement, input: Input, ctx: CanvasRe
   }
   const connect = (kind: 'create' | 'join') => {
     if (ws) return
-    if (!accountUserId()) { status.textContent = f.loginRequired; return }
-    if (kind === 'join' && !/^[A-Fa-f0-9]{6}$/.test(code.value.trim())) { status.textContent = m.unavailable; return }
+    if (!devRoom && !accountUserId()) { status.textContent = f.loginRequired; return }
+    if (!devRoom && kind === 'join' && !/^[A-Fa-f0-9]{6}$/.test(code.value.trim())) { status.textContent = m.unavailable; return }
     store('pkm:trainer', name.value)
     status.textContent = m.connecting
     joinActions.querySelectorAll('button').forEach((b) => { b.disabled = true })
-    try { ws = createFirebaseRoomConnection() } catch { fail(); return }
+    try { ws = devRoom ? createDevRoomConnection(devRoom) : createFirebaseRoomConnection() } catch { fail(); return }
     const socket = ws
     timeout = setTimeout(() => { if (!lobby) fail() }, 10000)
     ws.onopen = () => send({ type: kind, name: name.value, starter: selected(), shiny: shiny.checked && ownsShiny(save, selected()), mode: mode.value === 'duel' ? 'versus' : mode.value, size: mode.value === 'duel' ? 2 : 4, code: code.value.trim().toUpperCase(), version: `${NETWORK_VERSION}:${__GAME_VERSION__}` })
@@ -174,11 +177,19 @@ export const multiplayerScreen = (root: HTMLElement, input: Input, ctx: CanvasRe
         else if (msg.type === 'error') fail(m.unavailable)
         else if (msg.type === 'lobby') { lobby = msg; if (timeout) clearTimeout(timeout); showLobby() }
         else if (msg.type === 'start') {
+          if (timeout) clearTimeout(timeout)
           ranking = startTeamRanking(msg.mode, msg.players.map((p: Trainer) => p.id), msg.players.map((p: Trainer) => p.name))
           match = createMatch(msg.players, msg.mode, msg.seed)
           panel.classList.add('hidden'); el.classList.add('room-playing'); team.classList.remove('hidden'); notice.classList.remove('hidden')
           hud = createHud(root, () => { special = true }, () => { mega = true }, () => { lunge = true }, () => { if (match?.mode === 'coop') command('pause') })
-          const exit = h('button', { class: 'btn room-exit', onclick: leave }, m.leave); el.append(exit)
+          cards.clear()
+          team.replaceChildren(...match.members.map((p) => {
+            const fill = h('span', { class: 'team-hp-fill' }), hp = h('span', { class: 'team-hp-text' })
+            cards.set(p.trainer.id, { card: h('div', { class: 'team-card' }), fill, hp })
+            const card = cards.get(p.trainer.id)!.card
+            card.append(h('img', { src: portraitUrl(PLAYABLE[p.trainer.starter].line[0].dex), alt: '' }), h('div', { class: 'team-info' }, h('b', {}, p.trainer.name), h('span', { class: 'team-hp' }, fill), hp))
+            return card
+          }), h('button', { class: 'btn room-exit', onclick: leave }, m.leave))
           const schedule = rosterSchedule(match.game.roster).map((s) => s.dex)
           void streamSpecies(schedule)
           unlockAudio()
@@ -240,8 +251,14 @@ export const multiplayerScreen = (root: HTMLElement, input: Input, ctx: CanvasRe
       const p = other.state.player, x = Math.round(p.x - g.camera.x), y = Math.round(p.y - g.camera.y)
       ctx.save(); ctx.globalAlpha = p.hp > 0 ? 1 : 0.35
       drawPokemon(ctx, sprites(PLAYABLE[other.state.starter].line[p.stage]!.dex, p.shiny), p.moving ? 'Walk' : 'Idle', p.dir, p.animTime, x, y)
-      ctx.fillStyle = match.mode === 'coop' ? '#80ffad' : '#ff8090'; ctx.font = '7px monospace'; ctx.textAlign = 'center'; ctx.fillText(other.trainer.name, x, y - 27)
-      ctx.fillRect(x - 10, y - 23, Math.max(0, 20 * p.hp / p.stats.maxHp), 2); ctx.restore()
+      const ratio = Math.max(0, p.hp / p.stats.maxHp)
+      ctx.fillStyle = '#000'; ctx.fillRect(x - 13, y - 26, 26, 6)
+      ctx.fillStyle = '#3b4252'; ctx.fillRect(x - 12, y - 25, 24, 4)
+      ctx.fillStyle = hpColor(ratio); ctx.fillRect(x - 12, y - 25, Math.round(24 * ratio), 4)
+      ctx.font = 'bold 8px monospace'; ctx.textAlign = 'center'
+      outlined(ctx, other.trainer.name.slice(0, 12), x, y - 29, match.mode === 'coop' ? '#9dffc0' : '#ff9aa6')
+      ctx.restore()
+      if (match.mode === 'coop' && other.connected && (x < 0 || y < 0 || x > view.w || y > view.h)) allyArrow(ctx, view, x, y, other.trainer.name, p.hp > 0)
     }
     if (match.mode === 'coop') for (const fallen of match.members) {
       if (!fallen.connected || fallen.state.player.hp > 0 || fallen.revive <= 0) continue
@@ -256,7 +273,14 @@ export const multiplayerScreen = (root: HTMLElement, input: Input, ctx: CanvasRe
     const stick = input.readStick(); if (stick) drawJoystick(ctx, stick, canvasScale(ctx, view))
     hud?.update(g)
     g.view = oldView; g.camera = oldCamera; g.attacks = attacks
-    team.textContent = match.members.map((p) => `${p.trainer.name}: ${p.state.player.hp <= 0 ? m.down : Math.ceil(p.state.player.hp)}`).join(' · ')
+    for (const p of match.members) {
+      const view = cards.get(p.trainer.id)
+      if (!view) continue
+      const ratio = Math.max(0, p.state.player.hp / p.state.player.stats.maxHp), down = !p.connected || p.state.player.hp <= 0
+      view.fill.style.width = `${Math.round(ratio * 100)}%`; view.fill.style.background = hpColor(ratio)
+      view.hp.textContent = down ? m.down : `${Math.ceil(p.state.player.hp)}/${Math.ceil(p.state.player.stats.maxHp)}`
+      view.card.classList.toggle('down', down); view.card.classList.toggle('me', p.trainer.id === self)
+    }
     const choosing = match.members.some((p) => p.state.phase === 'levelup' || p.state.phase === 'evolving')
     notice.textContent = match.paused ? m.paused : choosing ? m.waiting : match.mode === 'coop' ? m.revive : ''
     const key = match.paused ? 'paused' : member.state.phase === 'levelup' ? member.state.offers : null
@@ -274,9 +298,33 @@ export const multiplayerScreen = (root: HTMLElement, input: Input, ctx: CanvasRe
     }
   }
   showJoin()
+  if (devRoom) later(() => connect('create'))
   const onVisibility = () => { if (document.hidden) send({ type: 'input', move: { x: 0, y: 0 } }) }
   document.addEventListener('visibilitychange', onVisibility)
   return { el, tick, debug: () => match, playing: () => match && !ended ? selectMember(match, self) : null, dispose: () => { disposed = true; finish(true); disconnect(); off(); document.removeEventListener('visibilitychange', onVisibility); authScreen?.dispose(); overlay?.dispose(); hud?.dispose(); team.remove(); notice.remove(); spectator.remove(); el.remove() } }
+}
+
+const hpColor = (ratio: number) => ratio > 0.5 ? '#5fe08a' : ratio > 0.25 ? '#ffd23f' : '#ff5a5a'
+
+/** Text with a dark outline so teammates' names read over any ground. */
+const outlined = (ctx: CanvasRenderingContext2D, text: string, x: number, y: number, color: string) => {
+  ctx.fillStyle = '#000'
+  for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]] as const) ctx.fillText(text, x + dx, y + dy)
+  ctx.fillStyle = color; ctx.fillText(text, x, y)
+}
+
+/** A marker on the screen edge pointing at a teammate who is out of view (red when they are down). */
+const allyArrow = (ctx: CanvasRenderingContext2D, view: { w: number; h: number }, x: number, y: number, name: string, standing: boolean) => {
+  const cx = view.w / 2, cy = view.h / 2, dx = x - cx, dy = y - cy
+  const k = Math.min((cx - 14) / Math.max(1e-6, Math.abs(dx)), (cy - 14) / Math.max(1e-6, Math.abs(dy)))
+  const ex = Math.round(cx + dx * k), ey = Math.round(cy + dy * k), angle = Math.atan2(dy, dx), color = standing ? '#9dffc0' : '#ff6a6a'
+  ctx.save(); ctx.translate(ex, ey); ctx.rotate(angle)
+  ctx.fillStyle = color; ctx.strokeStyle = '#000'; ctx.lineWidth = 1.5
+  ctx.beginPath(); ctx.moveTo(8, 0); ctx.lineTo(-5, -6); ctx.lineTo(-5, 6); ctx.closePath(); ctx.stroke(); ctx.fill()
+  ctx.restore()
+  ctx.save(); ctx.font = 'bold 7px monospace'; ctx.textAlign = 'center'
+  outlined(ctx, name.slice(0, 8), Math.min(view.w - 22, Math.max(22, ex - Math.cos(angle) * 20)), Math.min(view.h - 6, Math.max(10, ey - Math.sin(angle) * 14 + 3)), color)
+  ctx.restore()
 }
 
 const canvasScale = (ctx: CanvasRenderingContext2D, view: { w: number }) => ctx.canvas.getBoundingClientRect().width / view.w

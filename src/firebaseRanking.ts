@@ -164,7 +164,7 @@ export const firebaseProfile = async (handle: string): Promise<PublicProfile | '
     const records: PublicProfile['records'] = {}
     for (const record of best) { const r = record.data() as ScoreEntry | undefined; if (r && validModeResult('solo', r)) records[r.difficulty] = r }
     const online = Object.fromEntries(ONLINE_STATS.map((k) => [k, Number(stats.data()?.[k] ?? 0)])) as NonNullable<PublicProfile['online']>
-    return { handle, name: String(data.name), title: null, online, dex: { seen: Number(stats.data()?.seen ?? 0), caught: Number(stats.data()?.caught ?? 0) }, records, recent, followers: fans.size, following: following.size, followed: ownFollowing.has(handle), self: uid === accountUserId() }
+    return { handle, name: String(data.name), title: null, online, dex: { seen: Number(stats.data()?.seen ?? 0), caught: Number(stats.data()?.caught ?? 0) }, records, recent, followers: fans.size, following: following.size, followed: ownFollowing.has(handle), ...(typeof data.bg === 'number' ? { bg: data.bg } : {}), friends: Array.isArray(data.friends) ? data.friends.filter((id): id is string => typeof id === 'string') : [], self: uid === accountUserId() }
   } catch { return null }
 }
 const followingHandles = async (uid: string | null) => {

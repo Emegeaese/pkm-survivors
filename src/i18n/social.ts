@@ -7,6 +7,8 @@ const es = {
   theirOffer: 'Recibes', myOffer: 'Entregas', noOffer: 'Sin oferta', inventory: 'Copias disponibles del gacha', history: 'Intercambios recientes', cancelled: 'Intercambio cancelado',
   tradeInfo: 'Los intercambios transfieren copias obtenidas en el gacha, incluidas las shiny. Ambos deben confirmar la oferta actual. Las copias se transfieren juntas al completarse.',
   coopRuns: 'Cooperativos completados', coopWins: 'Victorias cooperativas', coopMinutes: 'Minutos en cooperativo', coopRevivals: 'Compañeros reanimados', versusRuns: 'Versus completados', versusWins: 'Victorias versus',
+  online: (n: number) => n === 1 ? '1 entrenador en línea' : `${n} entrenadores en línea`, friendsOf: (n: number) => n === 1 ? '1 amigo' : `${n} amigos`, noFriendsYet: 'Aún no tiene amigos.', addFriend: 'Añadir amigo', requested: 'Solicitud enviada',
+  background: 'Fondo del perfil', noBackground: 'Sin fondo', searchPokemon: 'Buscar Pokémon…', pickBackground: 'Elige un Pokémon para el fondo de tu perfil.', more: (n: number) => `y ${n} más`,
 }
 const en: typeof es = {
   friends: 'Friends', handle: 'Trainer handle (@username)', add: 'Add friend', sent: 'Request sent', missing: 'Trainer not found, or this is your own account.',
@@ -16,6 +18,8 @@ const en: typeof es = {
   theirOffer: 'You receive', myOffer: 'You send', noOffer: 'No offer', inventory: 'Available gacha copies', history: 'Recent trades', cancelled: 'Trade cancelled',
   tradeInfo: 'Trade copies obtained from the gacha, including shinies. Both trainers must confirm the current offer. Copies transfer together when the trade completes.',
   coopRuns: 'Co-op matches completed', coopWins: 'Co-op wins', coopMinutes: 'Co-op minutes', coopRevivals: 'Teammates revived', versusRuns: 'Versus matches completed', versusWins: 'Versus wins',
+  online: (n: number) => n === 1 ? '1 trainer online' : `${n} trainers online`, friendsOf: (n: number) => n === 1 ? '1 friend' : `${n} friends`, noFriendsYet: 'No friends yet.', addFriend: 'Add friend', requested: 'Request sent',
+  background: 'Profile background', noBackground: 'No background', searchPokemon: 'Search Pokémon…', pickBackground: 'Pick a Pokémon for your profile background.', more: (n: number) => `and ${n} more`,
 }
 const pt: typeof es = {
   friends: 'Amigos', handle: 'Apelido do treinador (@usuário)', add: 'Adicionar amigo', sent: 'Pedido enviado', missing: 'Treinador não encontrado ou esta é sua conta.',
@@ -25,5 +29,7 @@ const pt: typeof es = {
   theirOffer: 'Você recebe', myOffer: 'Você entrega', noOffer: 'Sem oferta', inventory: 'Cópias disponíveis do gacha', history: 'Trocas recentes', cancelled: 'Troca cancelada',
   tradeInfo: 'Troque cópias obtidas no gacha, incluindo shiny. Ambos confirmam a oferta atual. As cópias são transferidas juntas ao concluir.',
   coopRuns: 'Cooperativos concluídos', coopWins: 'Vitórias cooperativas', coopMinutes: 'Minutos cooperativos', coopRevivals: 'Aliados revividos', versusRuns: 'Versus concluídos', versusWins: 'Vitórias versus',
+  online: (n: number) => n === 1 ? '1 treinador online' : `${n} treinadores online`, friendsOf: (n: number) => n === 1 ? '1 amigo' : `${n} amigos`, noFriendsYet: 'Ainda sem amigos.', addFriend: 'Adicionar amigo', requested: 'Pedido enviado',
+  background: 'Fundo do perfil', noBackground: 'Sem fundo', searchPokemon: 'Buscar Pokémon…', pickBackground: 'Escolha um Pokémon para o fundo do perfil.', more: (n: number) => `e mais ${n}`,
 }
 export const socialText = () => locale() === 'es' ? es : locale() === 'pt' ? pt : en

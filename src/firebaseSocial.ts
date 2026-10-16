@@ -32,6 +32,23 @@ export const friendIds = async (): Promise<Set<string>> => {
   const snapshot = await getDocs(query(collection(firestore, 'pkmFriendships'), where('users', 'array-contains', uid)))
   return new Set(snapshot.docs.filter((d) => d.data().status === 'accepted').flatMap((d) => (d.data().users as string[]).filter((id) => id !== uid)))
 }
+/** Publishes the accepted friends on the player's own profile so others can see them, and only when the list changed. */
+let publishedFriends = ''
+export const publishFriends = async (ids: string[]) => {
+  const uid = accountUserId(), list = [...ids].sort().slice(0, 100), key = `${uid}:${list.join(',')}`
+  if (!uid || key === publishedFriends) return
+  const { firestore } = await firebaseServices(), { doc, updateDoc, serverTimestamp } = await import('firebase/firestore')
+  await updateDoc(doc(firestore, 'pkmProfiles', uid), { friends: list, updatedAt: serverTimestamp() })
+  publishedFriends = key
+}
+/** Sets (or clears, with null) the Pokémon drawn behind the player's profile. */
+export const setProfileBackground = async (dex: number | null) => {
+  const uid = accountUserId()
+  if (!uid) return false
+  const { firestore } = await firebaseServices(), { doc, updateDoc, deleteField, serverTimestamp } = await import('firebase/firestore')
+  await updateDoc(doc(firestore, 'pkmProfiles', uid), { bg: dex ?? deleteField(), updatedAt: serverTimestamp() })
+  return true
+}
 export const requestFriend = async (handle: string) => {
   const uid = accountUserId(), other = await findTrainer(handle)
   if (!uid || !other || uid === other.uid) return false

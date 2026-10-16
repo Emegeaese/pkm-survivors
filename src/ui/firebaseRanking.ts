@@ -42,7 +42,7 @@ export const firebaseRankingScreen = (root: HTMLElement, input: Input, back: () 
     mine.textContent = entries === null ? '' : position >= 0 ? `${text.mine}: #${position + 1}` : text.outside
     const visible = (entries ?? []).map((entry, i) => ({ entry, rank: i + 1 })).filter(({ entry }) => scope.value !== 'friends' || entry.team.some((uid) => friends.has(uid) || uid === accountUserId()))
     if (entries && !visible.length) status.textContent = scope.value === 'friends' && !accountUserId() ? text.login : m.empty
-    rows.replaceChildren(...visible.map(({ entry, rank }) => h('div', { class: `rank-row${entry.team.includes(accountUserId() ?? '') ? ' me' : ''}` },
+    rows.replaceChildren(...visible.map(({ entry, rank }) => h('div', { class: `rank-row${rank <= 3 ? ` top${rank}` : ''}${entry.team.includes(accountUserId() ?? '') ? ' me' : ''}` },
       h('span', { class: 'rank-pos' }, `#${rank}`), h('img', { src: portraitUrl(PLAYABLE[entry.starter].line[entry.stage]!.dex), alt: PLAYABLE[entry.starter].name }),
       h('span', { class: 'rank-who' }, h('button', { class: 'rank-profile', onclick: () => {
         if (sub) return

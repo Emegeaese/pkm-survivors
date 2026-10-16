@@ -20,6 +20,7 @@ import type { TraitId } from './data/traits'
 import { REGIONS, STARTERS } from './data/starters'
 import { challengeStart, nextIsOfficial, type Challenge } from './game/challenge'
 import { HATCHLING_IDS, HATCHLINGS, isHatchling, PLAYABLE, playableDex, type HatchlingId, type PlayableId } from './data/hatchlings'
+import { startPresence } from './firebasePresence'
 import { accountState, accountsEnabled, backFromSignIn, onAccountChange, onGifts, receiveGifts, startAccount, syncSave } from './account'
 import { track } from './analytics'
 import { BAG_ITEM_IDS, BAG_ITEMS, useArmed, type BagItem } from './game/bag'
@@ -1055,6 +1056,7 @@ const boot = () => {
   void preloadInBackground()
   promptProfile()
   startAccount()
+  startPresence()
   // Results that didn't reach the ranking last time (offline) go now, once the account is back.
   onAccountChange((s) => { if (s.kind === 'signedIn' && s.sync === 'synced') void flushRuns() })
   window.addEventListener('online', () => { void flushRuns() })

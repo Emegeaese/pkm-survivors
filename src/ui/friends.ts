@@ -1,6 +1,6 @@
 import type { Input } from '../engine/input'
 import { accountHandle, accountUserId } from '../account'
-import { readTrainer, requestFriend, respondFriend, watchFriends, type FriendProfile, type Friendship } from '../firebaseSocial'
+import { publishFriends, readTrainer, requestFriend, respondFriend, watchFriends, type FriendProfile, type Friendship } from '../firebaseSocial'
 import { socialText } from '../i18n/social'
 import { h, later } from './dom'
 import { profileScreen } from './profile'
@@ -37,6 +37,7 @@ export const friendsScreen = (root: HTMLElement, input: Input, back: () => void)
     const ids = friends.map((f) => f.users.find((id) => id !== uid)!)
     await Promise.all(ids.filter((id) => !profiles.has(id)).map(async (id) => { const p = await readTrainer(id); if (p) profiles.set(id, p) }))
     if (disposed || token !== revision) return
+    void publishFriends(friends.filter((f) => f.status === 'accepted').map((f) => f.users.find((id) => id !== uid)!)).catch(() => {})
     list.replaceChildren(...friends.map((friend, i) => {
       const p = profiles.get(ids[i]!), incoming = friend.to === uid
       return h('div', { class: 'box friend-row' }, h('b', {}, p?.name ?? ids[i]!), h('span', {}, p ? `@${p.handle}` : ''),

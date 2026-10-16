@@ -227,6 +227,10 @@ export type PublicProfile = ProfileName & {
   followers: number
   following: number
   followed: boolean
+  /** Dex number of the Pokémon drawn behind the profile. */
+  bg?: number
+  /** Uids of the accepted friends, as the owner published them. */
+  friends?: string[]
   /** Friends this player brought whose invite counted (`game/referral.ts`). Missing from an older API. */
   brought?: number
   /** Desafio do dia ribbons won, by tier (`game/ribbons.ts`). Missing from an older API. */

@@ -1,5 +1,5 @@
 import { accountRealName, accountState, saveProfile } from '../account'
-import { ONLINE_STATS } from '../firebaseSocial'
+import { ONLINE_STATS, readTrainer, requestFriend, setProfileBackground, type FriendProfile } from '../firebaseSocial'
 import { socialText } from '../i18n/social'
 import { playSfx } from '../engine/audio'
 import type { Input } from '../engine/input'
@@ -10,7 +10,7 @@ import { handleProblem, normalizeHandle, parseDisplayName, suggestHandle, type P
 import { RIBBON_TIERS, type RibbonTier } from '../game/ribbons'
 import { pokeballIcon, ribbonIcon } from '../render/art'
 import { portraitUrl } from '../render/sprites'
-import { fetchProfile, profileUrl, setFollow } from '../ranking'
+import { fetchProfile, profileUrl } from '../ranking'
 import { pokedex } from '../site/pokedex'
 import { LOCALES, locale, t } from '../i18n'
 import { h, later } from './dom'
@@ -130,17 +130,20 @@ export const profileScreen = (root: HTMLElement, input: Input, handle: string, o
     const m = t().profile
     const total = pokedex().length
     const signedIn = accountState().kind === 'signedIn'
-    const follow: Action = {
-      label: p.followed ? m.unfollow : m.follow,
+    const s = socialText()
+    const addFriend: Action = {
+      label: s.addFriend,
       run: async () => {
-        const next = await setFollow(p.handle, !p.followed)
-        if (!next || closed) return
-        playSfx(next.followed ? 'unlock' : 'select')
-        show({ ...p, followed: next.followed, followers: next.followers })
+        const sent = await requestFriend(p.handle).catch(() => false)
+        if (closed) return
+        playSfx(sent ? 'unlock' : 'hurt')
+        toast(root, sent ? s.requested : s.missing, 2200)
       },
     }
+    const friendsBox = h('div', { class: 'profile-friends' })
+    void fillFriends(friendsBox, p.friends ?? [])
     const actions = [
-      ...(p.self ? [{ label: m.edit, run: openEditor }, { label: m.card, run: () => openCard(p) }] : signedIn ? [follow] : []),
+      ...(p.self ? [{ label: m.edit, run: openEditor }, { label: m.card, run: () => openCard(p) }] : signedIn ? [addFriend] : []),
       { label: m.share, run: () => void share(root, p) },
       back(),
     ]
@@ -149,10 +152,12 @@ export const profileScreen = (root: HTMLElement, input: Input, handle: string, o
         h(
           'div',
           { class: 'profile-head' },
+          p.bg ? h('div', { class: 'profile-bg', style: `background-image:url(${portraitUrl(p.bg)})` }) : null,
           h('img', { class: 'profile-portrait', src: headPortrait(p), alt: '' }),
           h('div', { class: 'profile-id' }, h('b', { class: 'profile-name' }, p.name), h('span', { class: 'profile-handle' }, `@${p.handle}`), titleBadge(p.title)),
         ),
-        h('p', { class: 'profile-social' }, [m.followers(p.followers), m.following(p.following), ...(p.brought ? [m.brought(p.brought)] : [])].join(' · ')),
+        h('p', { class: 'profile-social' }, [s.friendsOf((p.friends ?? []).length), ...(p.brought ? [m.brought(p.brought)] : [])].join(' · ')),
+        section(s.friends, friendsBox),
         !p.self && !signedIn ? note(m.followGuest) : null,
         section(m.records, h('div', { class: 'profile-records' }, ...DIFFICULTY_IDS.map((d) => recordCell(d, p.records[d])))),
         ...(p.online ? [section(socialText().profile, h('div', { class: 'online-stats' }, ...ONLINE_STATS.map((key) => h('div', {}, h('span', {}, socialText()[key]), h('b', {}, p.online![key])))))] : []),
@@ -165,6 +170,16 @@ export const profileScreen = (root: HTMLElement, input: Input, handle: string, o
       ].filter((n) => n !== null),
       actions,
     )
+  }
+
+  /** The friends' names, a dozen at most; each chip opens that trainer's profile. */
+  const fillFriends = async (box: HTMLElement, uids: string[]) => {
+    const s = socialText()
+    if (!uids.length) return box.append(note(s.noFriendsYet))
+    const found = (await Promise.all(uids.slice(0, 12).map((id) => readTrainer(id).catch(() => null)))).filter((f): f is FriendProfile => f !== null)
+    if (closed) return
+    box.replaceChildren(...found.map((f) => h('button', { class: 'friend-chip', onclick: () => { current = f.handle; void load() } }, f.name)),
+      ...(uids.length > 12 ? [h('small', {}, s.more(uids.length - 12))] : []))
   }
 
   const load = async (opening = false) => {
@@ -249,6 +264,24 @@ export const profileEditor = (root: HTMLElement, input: Input, onClose: (saved: 
   const skip = h('button', { class: 'btn', type: 'button', onclick: () => close(false) }, m.later)
   let busy = false
   let closed = false
+  // The Pokémon behind the profile: changed only if the player touches the picker.
+  let bg: number | null = null, bgBefore: number | null = null, touched = false
+  const so = socialText()
+  const bgSearch = h('input', { class: 'field-input', type: 'search', placeholder: so.searchPokemon, 'aria-label': so.searchPokemon, autocomplete: 'off', spellcheck: 'false' })
+  const bgGrid = h('div', { class: 'bg-grid' })
+  const dexList = pokedex()
+  const pickBg = (dex: number | null) => { bg = dex; touched = true; renderBg() }
+  const renderBg = () => {
+    const q = bgSearch.value.trim().toLowerCase()
+    const shown = dexList.filter((e) => !q || e.name.toLowerCase().includes(q) || String(e.dex) === q).slice(0, 60)
+    bgGrid.replaceChildren(
+      h('button', { class: bg === null ? 'bg-cell selected' : 'bg-cell', type: 'button', onclick: () => pickBg(null) }, so.noBackground),
+      ...shown.map((e) => h('button', { class: bg === e.dex ? 'bg-cell selected' : 'bg-cell', type: 'button', title: e.name, 'aria-label': e.name, onclick: () => pickBg(e.dex) }, h('img', { src: portraitUrl(e.dex), alt: '', loading: 'lazy' }))),
+    )
+  }
+  bgSearch.addEventListener('input', renderBg)
+  if (known) void fetchProfile(known).then((p) => { if (p && p !== 'missing' && !touched) { bg = bgBefore = p.bg ?? null; renderBg() } })
+  renderBg()
 
   const setMessage = (text: string, error = false) => {
     message.textContent = text
@@ -287,7 +320,10 @@ export const profileEditor = (root: HTMLElement, input: Input, onClose: (saved: 
     busy = false
     save.textContent = m.save
     if (closed) return
-    if (result.ok) return (playSfx('unlock'), close(true))
+    if (result.ok) {
+      if (touched && bg !== bgBefore) await setProfileBackground(bg).catch(() => false)
+      return (playSfx('unlock'), close(true))
+    }
     playSfx('hurt')
     if (result.reason === 'taken') return (setMessage(m.problems.taken, true), offerSuggestion(result.suggestion))
     setMessage(result.reason === 'invalid' ? (problem() ?? m.saveFailed) : m.saveFailed, true)
@@ -308,6 +344,7 @@ export const profileEditor = (root: HTMLElement, input: Input, onClose: (saved: 
     field(m.handle, handleInput, '@'),
     message,
     suggestion,
+    h('div', { class: 'field' }, h('span', { class: 'field-label' }, so.background), bgSearch, bgGrid),
     h('p', { class: 'profile-note small' }, m.publicNote),
     h('div', { class: 'buttons' }, save, skip),
     h('p', { class: 'hint keys-only' }, m.editHintKeys),
