@@ -16,7 +16,7 @@ const isObject = (v: unknown): v is Message => typeof v === 'object' && v !== nu
 
 /** Firebase owns authentication, room membership, signaling and the fallback relay. */
 export const createFirebaseRoomConnection = (): RoomConnection => {
-  let database: Database, uid = '', code = '', slot = -1, isHost = false, room: Room | null = null, closed = false, started = false
+  let database: Database, uid = '', code = '', slot = -1, isHost = false, roomSize = 4, room: Room | null = null, closed = false, started = false
   let timer: ReturnType<typeof setInterval> | null = null, flushTimer: ReturnType<typeof setInterval> | null = null
   let sdk: typeof import('firebase/database'), tick = 0, commands: Command[] = []
   const peers = new Map<string, Peer>(), off: Unsubscribe[] = [], inputs = new Map<string, StepInput>(), hashes = new Map<number, Map<string, number>>()
@@ -221,6 +221,7 @@ export const createFirebaseRoomConnection = (): RoomConnection => {
       const member: Member = { id: uid, name: String(message.name ?? 'Trainer').slice(0, 24), starter: message.starter as Trainer['starter'], shiny: message.shiny === true, ready: false, slot: 0 }
       if (message.type === 'create') {
         if (message.mode !== 'coop' && message.mode !== 'versus') return
+        roomSize = message.mode === 'versus' && message.size === 2 ? 2 : 4
         const random = new Uint32Array(1); crypto.getRandomValues(random)
         const rng = createRng(random[0]!)
         for (let i = 0; i < 5; i++) {
@@ -234,9 +235,10 @@ export const createFirebaseRoomConnection = (): RoomConnection => {
       } else {
         code = String(message.code).toUpperCase()
         if (!/^[A-F0-9]{6}$/.test(code)) { code = ''; throw new Error('unavailable') }
-        const info = (await sdk.get(path('/info'))).val() as { phase?: string; version?: string } | null
+        const info = (await sdk.get(path('/info'))).val() as { phase?: string; version?: string; size?: number } | null
         if (!info || info.phase !== 'lobby' || info.version !== message.version) { code = ''; throw new Error('unavailable') }
-        for (let i = 1; i <= 3; i++) {
+        // 1 vs 1 rooms only have a second seat.
+        for (let i = 1; i < (info.size === 2 ? 2 : 4); i++) {
           const seat = await sdk.runTransaction(path(`/seats/${i}`), (value: string | null) => value ? undefined : uid)
           if (seat.committed) { slot = i; break }
         }
@@ -244,7 +246,7 @@ export const createFirebaseRoomConnection = (): RoomConnection => {
         member.slot = slot
         try { await sdk.set(path(`/m/${uid}`), member) } catch (e) { await sdk.remove(path(`/seats/${slot}`)).catch(() => {}); throw e }
       }
-      if (message.type === 'create') await sdk.set(path('/info'), { phase: 'lobby', version: message.version })
+      if (message.type === 'create') await sdk.set(path('/info'), { phase: 'lobby', version: message.version, size: roomSize })
       if (isHost) await sdk.onDisconnect(path()).remove()
       else await sdk.onDisconnect(path()).update({ [`m/${uid}`]: null, [`seats/${slot}`]: null })
       watchRoom(); return
@@ -253,7 +255,7 @@ export const createFirebaseRoomConnection = (): RoomConnection => {
     if (message.type === 'ready' && room.phase === 'lobby') await sdk.update(path(`/m/${uid}`), { ready: message.ready === true })
     else if (message.type === 'start' && room.phase === 'lobby' && room.host === uid) {
       const members = Object.values(room.m)
-      if (members.length < 2 || members.length > 4 || !members.every((p) => p.ready)) return
+      if (members.length < 2 || members.length > roomSize || !members.every((p) => p.ready)) return
       const roster = members.sort((a, b) => a.id === uid ? -1 : b.id === uid ? 1 : a.id.localeCompare(b.id))
       await sdk.update(path(), { roster, phase: 'playing', 'info/phase': 'playing' })
     } else if (room.host === uid) receive(uid, { ...message, seq: ++messageSequence })

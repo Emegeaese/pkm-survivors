@@ -76,6 +76,8 @@ export type EnemyBehavior =
 
 export type Enemy = {
   id: number
+  /** Network co-op: the trainer this chaser follows (`chooseTarget`). */
+  target?: Player
   kind: EnemyId
   types: readonly PokeType[]
   x: number
@@ -345,6 +347,8 @@ export type Game = {
   /** Network co-op only: shared EXP counter and live targets. Absent in solo replays. */
   partyXp?: number
   partyTargets?: Player[]
+  /** Network co-op: rotates which trainer the next spawn appears around. */
+  partyTurn?: number
   trainerId?: string
   /** The Pokémon this run plays: a starter or a hatched family. */
   starter: PlayableId

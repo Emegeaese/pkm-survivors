@@ -42,6 +42,17 @@ describe('shared multiplayer simulation', () => {
     expect(b!.state.player.hp).toBeGreaterThan(0)
     expect(b!.revive).toBe(0); expect(a!.revivals).toBe(1)
   })
+  it('splits the horde between trainers instead of sending it all to one', () => {
+    const m = createMatch(trainers, 'coop', 7)
+    const [a, b] = m.members
+    a!.state.player.x = 0; b!.state.player.x = 400
+    for (let i = 0; i < 1500; i++) stepMatch(m, {}, choose(m))
+    const chasers = m.game.enemies.filter((e) => !e.boss && e.dying < 0 && e.target)
+    const mine = chasers.filter((e) => e.target === a!.state.player).length
+    expect(chasers.length).toBeGreaterThan(10)
+    expect(Math.abs(mine - (chasers.length - mine))).toBeLessThanOrEqual(Math.ceil(chasers.length * 0.4))
+    expect(chasers.some((e) => e.target === b!.state.player)).toBe(true)
+  })
   it('reproduces the same world, upgrades and checksums on independent clients', () => {
     const a = createMatch(trainers, 'coop', 125), b = createMatch(trainers, 'coop', 125)
     for (let tick = 0; tick < 600; tick++) {

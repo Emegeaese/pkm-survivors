@@ -42,7 +42,7 @@ export const multiplayerScreen = (root: HTMLElement, input: Input, ctx: CanvasRe
   const code = h('input', { value: params.get('room')?.slice(0, 6) ?? '', maxlength: 6, placeholder: m.code, 'aria-label': m.code, autocapitalize: 'characters' })
   const pokemon = h('select', { 'aria-label': m.collection }, ...PLAYABLE_IDS.filter((id) => ownsPokemon(save, id)).sort((a, b) => PLAYABLE[a].line[0].dex - PLAYABLE[b].line[0].dex).map((id) => h('option', { value: id, selected: id === 'charmander' }, PLAYABLE[id].name)))
   const shiny = h('input', { type: 'checkbox' })
-  const mode = h('select', { 'aria-label': m.friends }, h('option', { value: 'coop' }, m.coop), h('option', { value: 'versus' }, m.versus))
+  const mode = h('select', { 'aria-label': m.friends }, h('option', { value: 'coop' }, m.coop), h('option', { value: 'versus' }, m.versus), h('option', { value: 'duel' }, m.duel))
   const status = h('p', { role: 'status', 'aria-live': 'polite' }), players = h('div', { class: 'room-players' })
   const actions = h('div', { class: 'buttons' }), joinActions = h('div', { class: 'buttons' })
   const config = h('div', { class: 'room-config' }, h('label', {}, m.name, name), h('label', {}, m.collection, pokemon), h('label', {}, shiny, m.shiny), h('label', {}, m.friends, mode), h('label', {}, m.code, code))
@@ -163,7 +163,7 @@ export const multiplayerScreen = (root: HTMLElement, input: Input, ctx: CanvasRe
     try { ws = createFirebaseRoomConnection() } catch { fail(); return }
     const socket = ws
     timeout = setTimeout(() => { if (!lobby) fail() }, 10000)
-    ws.onopen = () => send({ type: kind, name: name.value, starter: selected(), shiny: shiny.checked && ownsShiny(save, selected()), mode: mode.value, code: code.value.trim().toUpperCase(), version: `${NETWORK_VERSION}:${__GAME_VERSION__}` })
+    ws.onopen = () => send({ type: kind, name: name.value, starter: selected(), shiny: shiny.checked && ownsShiny(save, selected()), mode: mode.value === 'duel' ? 'versus' : mode.value, size: mode.value === 'duel' ? 2 : 4, code: code.value.trim().toUpperCase(), version: `${NETWORK_VERSION}:${__GAME_VERSION__}` })
     ws.onerror = (code) => { if (ws === socket) fail(code === 'auth-required' ? f.loginRequired : code.includes('permission') || code.includes('PERMISSION') ? f.rules : f.error) }
     ws.onclose = () => { if (ws === socket && !ended) fail(m.disconnected) }
     ws.onmessage = (event) => {

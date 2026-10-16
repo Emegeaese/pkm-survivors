@@ -11,7 +11,7 @@ import { leadTime } from './horde'
 import { createStatus, statusAttack, statusPace } from './status'
 import { enemyGroundPace } from './terrain'
 import { createTraitState, isAirborne, traitPace } from './traits'
-import type { Enemy, EnemyBehavior, Game } from './types'
+import type { Enemy, EnemyBehavior, Game, Player } from './types'
 import * as dm from '../engine/dmath'
 
 const neighbors: number[] = []
@@ -94,12 +94,51 @@ export const despawnEnemy = (e: Enemy) => {
   e.dying = FAINT_TIME
 }
 
+/** Chasers each enemy currently follows, per `partyTargets` entry. */
+const assignLoads = (g: Game) => {
+  const targets = g.partyTargets!
+  const loads = targets.map(() => 0)
+  for (const e of g.enemies) {
+    if (e.dying >= 0 || e.boss || !e.target) continue
+    const i = targets.indexOf(e.target)
+    if (i >= 0 && e.target.hp > 0) loads[i]!++
+  }
+  return loads
+}
+
+/**
+ * Co-op aggro: a regular chaser keeps its target until that trainer falls, and a new one
+ * goes to the nearest trainer still under their fair share, so one player never draws the
+ * whole horde. Bosses just follow the nearest trainer.
+ */
+const chooseTarget = (g: Game, e: Enemy, loads: number[]): Player => {
+  const targets = g.partyTargets!
+  const nearest = (limit: number) => {
+    let best: Player | null = null, bestIndex = -1
+    for (let i = 0; i < targets.length; i++) {
+      const t = targets[i]!
+      if (t.hp <= 0 || loads[i]! > limit) continue
+      if (!best || dm.sq(t.x - e.x) + dm.sq(t.y - e.y) < dm.sq(best.x - e.x) + dm.sq(best.y - e.y)) { best = t; bestIndex = i }
+    }
+    return { best, bestIndex }
+  }
+  if (e.boss || e.behavior.kind !== 'chase') return nearest(Infinity).best ?? g.player
+  if (e.target && e.target.hp > 0 && targets.includes(e.target)) return e.target
+  let live = 0, total = 0
+  for (let i = 0; i < targets.length; i++) if (targets[i]!.hp > 0) { live++; total += loads[i]! }
+  const { best, bestIndex } = nearest(Math.ceil((total + 1) / Math.max(1, live)) - 1)
+  if (!best) return nearest(Infinity).best ?? g.player
+  e.target = best; loads[bestIndex]!++
+  return best
+}
+
 export const updateEnemies = (g: Game, dt: number) => {
   const p = g.player
   const recycleDist = dm.hypot(g.view.w, g.view.h) * 0.85
 
+  const loads = g.partyTargets ? assignLoads(g) : null
   for (const e of g.enemies) {
-    const p = g.partyTargets?.reduce((near, p) => p.hp > 0 && dm.sq(p.x - e.x) + dm.sq(p.y - e.y) < dm.sq(near.x - e.x) + dm.sq(near.y - e.y) ? p : near, g.player) ?? g.player
+    const p = loads ? chooseTarget(g, e, loads) : g.player
     if (e.dying >= 0) {
       e.dying += dt
       if (e.fled) {

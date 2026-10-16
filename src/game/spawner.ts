@@ -16,14 +16,22 @@ import * as dm from '../engine/dmath'
 /** Just outside the visible area, in a random direction around the player. */
 const ringDistance = (g: Game) => dm.hypot(g.view.w, g.view.h) / 2 + 12
 
+/** Whom a spawn appears around: the player, or in network co-op each living trainer in turn. */
+const anchor = (g: Game) => {
+  const live = g.partyTargets?.filter((p) => p.hp > 0)
+  if (!live || live.length < 2) return g.player
+  g.partyTurn = ((g.partyTurn ?? 0) + 1) % 1e6
+  return live[g.partyTurn % live.length]!
+}
+
 const offscreen = (g: Game, angle = range(g.rng, 0, TAU)) => {
-  const d = ringDistance(g)
-  return { x: g.player.x + dm.cos(angle) * d, y: g.player.y + dm.sin(angle) * d }
+  const d = ringDistance(g), p = anchor(g)
+  return { x: p.x + dm.cos(angle) * d, y: p.y + dm.sin(angle) * d }
 }
 
 /** A closing circle of `count` × `species` around the player. The endless mode reuses it. */
 export const spawnRing = (g: Game, species: EnemyId, count: number) => {
-  const p = g.player
+  const p = anchor(g)
   const d = ringDistance(g) - 20
   for (let i = 0; i < count; i++) {
     const a = (i / count) * TAU
@@ -33,7 +41,7 @@ export const spawnRing = (g: Game, species: EnemyId, count: number) => {
 
 /** A flock of `count` × `species` that enters from one side and crosses the screen through the player's area. The endless mode reuses it. */
 export const spawnSwarm = (g: Game, species: EnemyId, count: number) => {
-  const p = g.player
+  const p = anchor(g)
   const heading = range(g.rng, 0, TAU)
   const d = ringDistance(g)
   const speed = ENEMIES[species].speed * 1.7
@@ -163,7 +171,8 @@ export const updateSpawner = (g: Game, dt: number) => {
       // Shinies pop in just inside the screen edge so their sparkle entrance is seen.
       const a = range(g.rng, 0, TAU)
       const d = Math.min(g.view.w, g.view.h) / 2 - 16
-      makeShiny(g, spawnEnemy(g, kind, g.player.x + dm.cos(a) * d, g.player.y + dm.sin(a) * d))
+      const p = anchor(g)
+      makeShiny(g, spawnEnemy(g, kind, p.x + dm.cos(a) * d, p.y + dm.sin(a) * d))
     } else {
       const pos = offscreen(g)
       const e = spawnEnemy(g, kind, pos.x, pos.y)
