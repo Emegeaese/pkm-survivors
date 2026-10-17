@@ -89,6 +89,7 @@ import { shop } from './ui/shop'
 import { starterSelect } from './ui/starterSelect'
 import { titleScreen, type LobbyFocus, type Meadow } from './ui/title'
 import { startPresence } from './firebasePresence'
+import { refreshOwnLook } from './ui/ownLook'
 import { gachaScreen } from './ui/catalogue'
 import { firebaseRankingScreen } from './ui/firebaseRanking'
 import { multiplayerScreen } from './ui/multiplayer'
@@ -1141,6 +1142,7 @@ const boot = () => {
   startAccount()
   // Results that didn't reach the ranking last time (offline) go now, once the account is back.
   startPresence()
+  onAccountChange(() => void refreshOwnLook())
   onAccountChange((s) => { if (s.kind === 'signedIn' && s.sync === 'synced') void flushRuns() })
   window.addEventListener('online', () => { void flushRuns() })
 }

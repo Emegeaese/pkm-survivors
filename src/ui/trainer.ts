@@ -4,6 +4,8 @@ import type { Input } from '../engine/input'
 import { MEDALS } from '../data/achievements'
 import { RIBBON_TIERS, ribbonCounts } from '../game/ribbons'
 import { savedSupporterTier, trainerAvatar } from '../game/trainer'
+import { onLookChange, ownLook } from './ownLook'
+import { PLAYABLE } from '../data/hatchlings'
 import { formatNumber, t } from '../i18n'
 import { socialText } from '../i18n/social'
 import { medalIcon, pokeballIcon, ribbonIcon, supporterIcon } from '../render/art'
@@ -26,7 +28,8 @@ import { backButton, gearButton, shellBody, topBar } from './shell'
 const avatar = (s: AccountState, size: 'small' | 'big') => {
   const save = loadSave()
   const signedIn = s.kind === 'signedIn'
-  const face = trainerAvatar(save)
+  const photo = signedIn ? ownLook().photo : undefined
+  const face = photo ? { dex: PLAYABLE[photo].line[PLAYABLE[photo].line.length - 1]!.dex, shiny: false } : trainerAvatar(save)
   const ring = signedIn && savedSupporterTier(save) ? ' supporter' : ''
   return h('span', { class: `trainer-avatar ${size}${ring}`, 'aria-hidden': 'true' }, signedIn ? h('img', { src: portraitUrl(face.dex, face.shiny), alt: '' }) : h('img', { class: 'ball', src: pokeballIcon(), alt: '' }))
 }
@@ -34,9 +37,10 @@ const avatar = (s: AccountState, size: 'small' | 'big') => {
 /** The equipped title, with the supporter's heart before it, or null. */
 const titleLine = (cls: string) => {
   const save = loadSave()
-  if (!save.title) return null
+  const title = (accountState().kind === 'signedIn' ? ownLook().title : undefined) ?? save.title
+  if (!title) return null
   const tier = savedSupporterTier(save)
-  return h('span', { class: cls }, tier && h('img', { src: supporterIcon(tier), alt: '' }), h('span', {}, t().achievements.titles[save.title]))
+  return h('span', { class: cls }, tier && h('img', { src: supporterIcon(tier), alt: '' }), h('span', {}, t().achievements.titles[title]))
 }
 
 /**
@@ -62,8 +66,9 @@ export const trainerChip = (input: Input, opts: { onOpen: () => void }) => {
   }
   draw(accountState())
   const offState = onAccountChange(draw)
+  const offLook = onLookChange(() => draw(accountState()))
   const offKey = input.onKey((key) => key === 'KeyC' && open())
-  return { el, dispose: () => (offState(), offKey()) }
+  return { el, dispose: () => (offState(), offLook(), offKey()) }
 }
 
 /** One row under the card: a label, maybe an icon, and what it opens. `tone: 'out'` is the red sign out. */
@@ -208,6 +213,7 @@ export const trainerCardScreen = (
   }
 
   const offState = onAccountChange(() => build(false))
+  const offLook = onLookChange(() => build(false))
   const offKeys = input.onKey((key) => !sub && (key === 'Escape' || key === 'Backspace') && close())
 
   const dispose = () => {
@@ -215,6 +221,7 @@ export const trainerCardScreen = (
     sub?.dispose()
     nav?.off()
     offState()
+    offLook()
     offKeys()
     el.remove()
   }

@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import { after, before, test } from 'node:test'
 import assert from 'node:assert/strict'
 import { initializeTestEnvironment, assertSucceeds, assertFails } from '@firebase/rules-unit-testing'
-import { doc, setDoc, getDoc, serverTimestamp, writeBatch, updateDoc, deleteDoc, runTransaction } from 'firebase/firestore'
+import { doc, setDoc, getDoc, serverTimestamp, writeBatch, updateDoc, deleteDoc, deleteField, runTransaction } from 'firebase/firestore'
 import { ref, set, get, remove, update } from 'firebase/database'
 
 let env
@@ -140,6 +140,10 @@ test('profile look (photo, wallpaper, favourites) and published friends are owne
   await assertFails(setDoc(ref(owner), { ...base, friends: 'friend-b' }))
   await assertFails(setDoc(ref(owner), { ...base, rank: 1 }))
   await assertFails(setDoc(ref(other), { ...base, photo: 'pikachu' }))
+  // What the editor sends: an update that sets the photo and clears the rest.
+  await assertSucceeds(updateDoc(ref(owner), { photo: 'eevee', wall: deleteField(), favs: deleteField(), title: 'veteran', updatedAt: serverTimestamp() }))
+  await assertSucceeds(updateDoc(ref(owner), { photo: deleteField(), title: deleteField(), updatedAt: serverTimestamp() }))
+  await assertFails(updateDoc(ref(other), { photo: 'eevee', updatedAt: serverTimestamp() }))
 })
 test('presence is public to read, but each trainer writes only their own entry', async () => {
   const mine = env.authenticatedContext('presence-a').database(), other = env.authenticatedContext('presence-b').database(), guest = env.unauthenticatedContext().database()

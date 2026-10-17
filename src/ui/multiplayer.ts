@@ -11,6 +11,7 @@ import { ownsPokemon, ownsShiny } from '../game/gacha'
 import { createMatch, matchHash, NETWORK_VERSION, REVIVE_SECONDS, selectMember, spectatorTarget, stepMatch, versusRadius, type Match, type MatchMode, type Trainer } from '../game/multiplayer'
 import { toSteps } from '../game/eggs'
 import type { RunSummary } from '../game/tally'
+import type { GameEvent } from '../game/types'
 import { runEarnings } from '../game/meta'
 import { recordRun, mergeDex } from '../game/dex'
 import { summarizeRun } from '../game/tally'
@@ -21,7 +22,10 @@ import { drawJoystick } from '../render/joystick'
 import { createRng } from '../engine/rng'
 import { dir8 } from '../engine/math'
 import { drawPokemon, loadedSprites, portraitUrl, loadAll, preloadShinies, sprites, streamSpecies } from '../render/sprites'
-import { playSfx, unlockAudio } from '../engine/audio'
+import { playCry, playSfx, unlockAudio } from '../engine/audio'
+import { BIOME_ORDER } from '../data/biomes'
+import { ENEMIES } from '../data/enemies'
+import { banner, clearToasts, tickToasts, toast } from './toasts'
 import { accountState, accountUserId } from '../account'
 import { accountScreen } from './account'
 import { socialText } from '../i18n/social'
@@ -33,7 +37,7 @@ import { startTeamRanking, finishTeamRanking } from '../firebaseRanking'
 import { runResult } from '../game/ranking'
 import { t } from '../i18n'
 import { featureText } from '../i18n/features'
-import { h, later } from './dom'
+import { h, later, rich } from './dom'
 import { bankEggs, depositPokeDollars, loadSave, recordRunProgress, updateSave } from './save'
 import { settings } from './settings'
 import { blitCentered, nameSprite } from '../engine/pixelart'
@@ -104,6 +108,7 @@ export const multiplayerScreen = (root: HTMLElement, input: Input, ctx: CanvasRe
   const panel = h('div', { class: 'feature-panel box room-panel' }, h('h1', {}, m.friends), h('p', {}, m.lobbyInfo), config, status, players, inviteList, joinActions, actions)
   const el = h('div', { class: 'screen feature-screen room-screen' }, panel)
   root.append(el)
+  const news: Extract<GameEvent, { kind: 'biome' | 'shiny' }>[] = []
   let ws: RoomConnection | null = null, self = '', lobby: Lobby | null = null, match: Match | null = null, hud: Hud | null = null, overlay: Screen | null = null, authScreen: Screen | null = null
   let ranking: ReturnType<typeof startTeamRanking> | null = null
   let disposed = false, paid = false, ended = false, victoryShown = false, sequence = 0, sendAt = 0, timeout: ReturnType<typeof setTimeout> | null = null
@@ -273,6 +278,8 @@ export const multiplayerScreen = (root: HTMLElement, input: Input, ctx: CanvasRe
           stepMatch(match, held)
           // Simulation events are presentation-only and must never accumulate.
           if (match.game.events.some((e) => e.kind === 'hit')) playSfx('hit')
+          // The world's news (a new area, a shiny) reaches everyone, as in a solo run.
+          for (const e of match.game.events) if (e.kind === 'biome' || e.kind === 'shiny') news.push(e)
           match.game.events.length = 0
           if (sequence % 90 === 0) send({ type: 'ack', tick: sequence, hash: matchHash(match) })
           if (match.result) {
@@ -302,9 +309,22 @@ export const multiplayerScreen = (root: HTMLElement, input: Input, ctx: CanvasRe
     if (key === 'ShiftLeft' || key === 'ShiftRight') lunge = true
     if (key === 'Escape' && match.mode === 'coop') command('pause')
   })
+  let newsAt = 0
   const tick = (time: number) => {
     picker?.tick?.(time)
     if (!match || ended) return
+    const frame = Math.min(0.1, Math.max(0, time - newsAt)); newsAt = time
+    for (const e of news.splice(0)) {
+      if (e.kind === 'biome') {
+        playSfx('item')
+        banner(root, h('span', { class: 'biome-banner' }, h('small', {}, t().world.area(BIOME_ORDER.indexOf(e.biome) + 1, BIOME_ORDER.length)), h('b', {}, t().world.biomes[e.biome])), 2800)
+      } else {
+        const def = ENEMIES[e.enemy]
+        playSfx('shiny'); playCry(sprites(def.dex).cry, 0.4)
+        toast(root, rich(t().toast.shiny(def.name)), 3200)
+      }
+    }
+    tickToasts(root, frame, !!match.paused)
     if (time - sendAt > 1 / 30) {
       sendAt = time
       send({ type: 'input', move: document.hidden ? { x: 0, y: 0 } : input.readMove(), special, mega, lunge }); special = mega = lunge = false
@@ -377,7 +397,7 @@ export const multiplayerScreen = (root: HTMLElement, input: Input, ctx: CanvasRe
   if (devRoom) later(() => connect('create'))
   const onVisibility = () => { if (document.hidden) send({ type: 'input', move: { x: 0, y: 0 } }) }
   document.addEventListener('visibilitychange', onVisibility)
-  return { el, tick, debug: () => match, playing: () => match && !ended ? selectMember(match, self) : null, dispose: () => { disposed = true; stopInvites(); finish(true); disconnect(); off(); document.removeEventListener('visibilitychange', onVisibility); authScreen?.dispose(); overlay?.dispose(); hud?.dispose(); team.remove(); notice.remove(); spectator.remove(); el.remove() } }
+  return { el, tick, debug: () => match, playing: () => match && !ended ? selectMember(match, self) : null, dispose: () => { disposed = true; stopInvites(); finish(true); disconnect(); off(); document.removeEventListener('visibilitychange', onVisibility); authScreen?.dispose(); overlay?.dispose(); hud?.dispose(); clearToasts(root); team.remove(); notice.remove(); spectator.remove(); el.remove() } }
 }
 
 /** Wild Pokémon that gather around the arena to watch a versus match: decoration only, never part of the simulation. */

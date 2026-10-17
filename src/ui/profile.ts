@@ -11,7 +11,8 @@ import { ownsPokemon } from '../game/gacha'
 import { ownsStyle } from '../game/style'
 import { wallpaperUrl } from '../render/cosmetics'
 import { friendsScreen } from './friends'
-import { loadSave } from './save'
+import { setOwnLook } from './ownLook'
+import { equipTitle, loadSave } from './save'
 import { DIFFICULTY_IDS, type Difficulty } from '../game/difficulty'
 import { handleProblem, normalizeHandle, parseDisplayName, suggestHandle, type ProfileRun, type PublicProfile } from '../game/ranking'
 import { RIBBON_TIERS, type RibbonTier } from '../game/ribbons'
@@ -396,7 +397,15 @@ export const profileEditor = (root: HTMLElement, input: Input, onClose: (saved: 
     save.textContent = m.save
     if (closed) return
     if (result.ok) {
-      if (touched) await setProfileLook({ photo, wall, favs: favs.length ? favs : null, title }).catch(() => false)
+      if (touched) {
+        const saved = await setProfileLook({ photo, wall, favs: favs.length ? favs : null, title }).catch(() => false)
+        if (saved) {
+          // The title shown on the profile is the one worn in the game too (results, cards).
+          equipTitle(title)
+          setOwnLook({ ...(photo ? { photo } : {}), ...(title ? { title } : {}) })
+        }
+        else toast(root, so.lookFailed, 3200)
+      }
       return (playSfx('unlock'), close(true))
     }
     playSfx('hurt')
