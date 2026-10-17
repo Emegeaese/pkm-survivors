@@ -5672,3 +5672,15 @@ a.btn.dex-site {
 @media (max-width: 859px) { .mart-effect { display: none; } }
 @media (min-width: 860px) and (min-height: 540px) { .dialog.mart:not(.missions) > .buttons { align-self: start; } }
 .dialog.profile > .buttons { background: var(--paper); border-top: 2px solid #c4cce0; padding: 10px 0 6px; }
+
+/* ---- Tabbed windows keep one size: switching a tab never grows or shrinks the dialog ---- */
+.dialog.mart.missions { width: min(620px, 100%); height: min(760px, 100%); }
+.missions-list { min-height: 0; scrollbar-gutter: stable; }
+.dialog.mart:not(.missions) { height: min(640px, 100%); }
+.mart-list { min-height: 0; flex: 1 1 0; scrollbar-gutter: stable; }
+@media (min-width: 860px) and (min-height: 540px) {
+  .dialog.mart:not(.missions) { height: min(600px, 100%); grid-template-rows: auto auto auto minmax(0, 1fr) auto auto; }
+  .dialog.mart:not(.missions) > .mart-list { max-height: none; }
+}
+.dialog.profile { height: min(780px, 100%); }
+.feature-panel:has(.firebase-rank-list) { min-height: min(620px, calc(100dvh - 48px)); }
