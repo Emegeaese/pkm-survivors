@@ -59,7 +59,8 @@ const difficultyControl = (initial: Difficulty) => {
 }
 
 /** The lobby owns its socket, input handlers, HUD and overlays; leaving tears down all of them. */
-export const multiplayerScreen = (root: HTMLElement, input: Input, ctx: CanvasRenderingContext2D, view: { w: number; h: number }, back: () => void): Screen => {
+/** `mode` presets the room's mode (from the JOGAR screen); `invites` opens the invitations right away. */
+export const multiplayerScreen = (root: HTMLElement, input: Input, ctx: CanvasRenderingContext2D, view: { w: number; h: number }, back: () => void, opts: { mode?: MatchMode; invites?: boolean } = {}): Screen => {
   const m = featureText(), save = loadSave(), params = new URLSearchParams(location.search)
   const f = firebaseText()
   const devRoom = import.meta.env.DEV ? params.get('devroom') : null
@@ -75,6 +76,7 @@ export const multiplayerScreen = (root: HTMLElement, input: Input, ctx: CanvasRe
   const shiny = h('input', { type: 'checkbox' })
   const difficulty = difficultyControl(save.difficulty)
   const mode = h('select', { 'aria-label': m.friends }, h('option', { value: 'coop' }, m.coop), h('option', { value: 'versus' }, m.versus))
+  if (opts.mode) mode.value = opts.mode
   // Difficulty only matters against the horde.
   mode.onchange = () => difficulty.el.classList.toggle('hidden', mode.value !== 'coop')
   const status = h('p', { role: 'status', 'aria-live': 'polite' }), players = h('div', { class: 'room-players' })
@@ -187,10 +189,12 @@ export const multiplayerScreen = (root: HTMLElement, input: Input, ctx: CanvasRe
   const leave = () => { finish(true); disconnect(); later(back) }
   let pendingInvites = 0, stopInvites = () => {}
   if (accountUserId()) void watchInvites((list) => { pendingInvites = list.length; if (!lobby && !match && !authScreen) showJoin() }, () => {}).then((off) => { stopInvites = off }).catch(() => {})
+  const openInvites = () => {
+    panel.classList.add('hidden')
+    authScreen = invitesScreen(root, input, (invited) => { authScreen = null; panel.classList.remove('hidden'); code.value = invited; connect('join') }, () => { authScreen = null; panel.classList.remove('hidden'); showJoin() })
+  }
   const showJoin = () => joinActions.replaceChildren(h('button', { class: 'btn', onclick: () => connect('create') }, m.create), h('button', { class: 'btn', onclick: () => connect('join') }, m.join),
-    ...(accountUserId() ? [h('button', { class: 'btn', onclick: () => {
-      panel.classList.add('hidden'); authScreen = invitesScreen(root, input, (invited) => { authScreen = null; panel.classList.remove('hidden'); code.value = invited; connect('join') }, () => { authScreen = null; panel.classList.remove('hidden'); showJoin() })
-    } }, socialText().invitations(pendingInvites))] : []),
+    ...(accountUserId() ? [h('button', { class: 'btn', onclick: openInvites }, socialText().invitations(pendingInvites))] : []),
     ...(!accountUserId() ? [h('button', { class: 'btn', onclick: () => {
       panel.classList.add('hidden'); authScreen = accountScreen(root, input, () => { authScreen = null; panel.classList.remove('hidden'); showJoin() })
     } }, f.login)] : []), h('button', { class: 'btn', onclick: leave }, m.back))
@@ -369,6 +373,7 @@ export const multiplayerScreen = (root: HTMLElement, input: Input, ctx: CanvasRe
     }
   }
   showJoin()
+  if (opts.invites && accountUserId()) later(openInvites)
   if (devRoom) later(() => connect('create'))
   const onVisibility = () => { if (document.hidden) send({ type: 'input', move: { x: 0, y: 0 } }) }
   document.addEventListener('visibilitychange', onVisibility)

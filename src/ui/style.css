@@ -9262,3 +9262,27 @@ button.hall-tile:hover {
 .partner-page { font-size: 18px; color: #4a5a85; }
 .partner-page-btn { min-width: 44px; min-height: 36px; font: inherit; font-size: 16px; color: var(--ink); background: #e3e7f2; border: 2px solid transparent; border-radius: 6px; }
 .partner-page-btn:disabled { opacity: .4; }
+
+/* ---- "How do you want to play?" (JOGAR) ---- */
+.modes { width: min(880px, 100%); display: flex; flex-direction: column; gap: 14px; margin: auto; }
+.mode-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.mode-card, .mode-row { display: flex; align-items: center; gap: 12px; padding: 14px; text-align: left; color: var(--ink); border: 3px solid transparent; cursor: pointer; }
+.mode-card { flex-direction: column; justify-content: center; min-height: 220px; text-align: center; }
+.mode-card img { width: 64px; height: 64px; image-rendering: pixelated; object-fit: contain; }
+.mode-card.solo { background: linear-gradient(#e6f6e2, var(--paper)); }
+.mode-card.coop { background: linear-gradient(#e2edf8, var(--paper)); }
+.mode-card.versus { background: linear-gradient(#f8e2e2, var(--paper)); }
+.mode-row img { width: 36px; height: 36px; image-rendering: pixelated; object-fit: contain; }
+.mode-text { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.mode-text b { font-family: var(--title); font-size: 12px; line-height: 1.4; }
+.mode-text small { font-size: 19px; line-height: 1.15; color: #4a5a85; }
+.mode-rows { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.mode-card.selected, .mode-row.selected { border-color: #e83838; }
+.mode-row.waiting b::after { content: ' ●'; color: #e83838; }
+.modes-hint { display: none; }
+@media (max-width: 700px) {
+  .mode-cards { grid-template-columns: 1fr; }
+  .mode-card { flex-direction: row; min-height: 0; text-align: left; }
+  .mode-card img { width: 48px; height: 48px; }
+  .mode-rows { grid-template-columns: 1fr; }
+}

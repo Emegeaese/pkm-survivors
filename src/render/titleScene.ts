@@ -97,6 +97,8 @@ export type TitleScene = {
   quietUntil: number
   /** Dust where the partner landed, by scene time. */
   puffs: { x: number; y: number; at: number }[]
+  /** World px the partner has walked since the shell last collected them (`takeWalked`). */
+  walked: number
 }
 
 /** Every species that may roam: wild Pokémon and the starter lines (evolutions show up once a run has loaded them). */
@@ -154,6 +156,7 @@ export const createTitleScene = (seed: number): TitleScene => {
     cries: [],
     quietUntil: 0,
     puffs: [],
+    walked: 0,
   }
 }
 
@@ -279,6 +282,13 @@ const partnerVelocity = (p: Partner, dt: number): Vec => {
   return { x: 0, y: 0 }
 }
 
+/** The distance (world px) the partner walked since the last call: the shell turns it into egg steps. */
+export const takeWalked = (s: TitleScene) => {
+  const px = s.walked
+  s.walked = 0
+  return px
+}
+
 /** Walks the partner: off the stage on the first order, back to it after `REST` idle seconds, the camera keeping it in view. */
 const stepPartner = (s: TitleScene, p: Partner, dt: number, w: number, h: number) => {
   const ordered = p.move.x !== 0 || p.move.y !== 0 || p.target !== null
@@ -305,6 +315,7 @@ const stepPartner = (s: TitleScene, p: Partner, dt: number, w: number, h: number
   const v = partnerVelocity(p, dt)
   p.moving = v.x !== 0 || v.y !== 0
   if (p.moving) {
+    s.walked += Math.hypot(v.x, v.y) * dt
     p.x += v.x * dt
     p.y += v.y * dt
     p.dir = dir8(v.x, v.y)

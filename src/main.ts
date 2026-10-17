@@ -60,7 +60,7 @@ import { setMarkerInsets } from './render/mapEvents'
 import { consumableIcon } from './render/props'
 import { bagIcon, eggIcon, ribbonIcon } from './render/art'
 import { megaStoneIcon } from './render/megaFx'
-import { createTitleScene, drawTitleScene, meetPartner, steerPartner, stepTitleScene } from './render/titleScene'
+import { createTitleScene, drawTitleScene, meetPartner, steerPartner, stepTitleScene, takeWalked } from './render/titleScene'
 import { weatherIcon } from './render/weather'
 import { formatDay, locale, LOCALES, t } from './i18n'
 import { h, later, rich } from './ui/dom'
@@ -92,6 +92,7 @@ import { startPresence } from './firebasePresence'
 import { gachaScreen } from './ui/catalogue'
 import { firebaseRankingScreen } from './ui/firebaseRanking'
 import { multiplayerScreen } from './ui/multiplayer'
+import { playModesScreen, type PlayMode } from './ui/playModes'
 import { ownsPokemon, ownsShiny } from './game/gacha'
 import { banner, clearToasts, tickToasts, toast } from './ui/toasts'
 
@@ -227,6 +228,23 @@ const meadow: Meadow = {
   stick: (stick) => (meadowStick = stick),
 }
 
+/** Meadow walks count for the eggs like steps in a run: banked in batches, so the save isn't written every frame. */
+let meadowPx = 0
+const MEADOW_BATCH = 6
+const walkMeadowEggs = () => {
+  meadowPx += takeWalked(scene)
+  const steps = toSteps(meadowPx)
+  if (steps < MEADOW_BATCH) return
+  meadowPx -= steps * EGGS.stepPx
+  const before = loadSave().eggs.filter(isReady).length
+  bankEggs(steps, [])
+  const ready = loadSave().eggs.filter(isReady).length
+  if (ready > before) {
+    playSfx('unlock')
+    toast(ui, rich(t().eggs.readyBadge(ready)), 3000)
+  }
+}
+
 const queueMega = () => {
   unlockAudio()
   if (run?.game.phase === 'playing') megaQueued = true
@@ -264,7 +282,7 @@ const showTitle = (opts: { intro?: boolean; focus?: LobbyFocus } = {}) => {
   endRun()
   setScreen(
     titleScreen(ui, input, {
-      play: () => (accountsEnabled && !playingAsGuest && accountState().kind === 'guest' ? showPlayGate() : showMenu()),
+      play: () => (accountsEnabled && !playingAsGuest && accountState().kind === 'guest' ? showPlayGate() : showModes()),
       challenge: () => showChallenge(),
       incubator: () => showIncubator(() => showTitle({ focus: 'eggs' })),
       missions: () => showMissions(),
@@ -290,8 +308,8 @@ let playingAsGuest = false
 const showPlayGate = () =>
   setScreen(
     playGate(ui, input, {
-      play: () => showMenu(),
-      guest: () => ((playingAsGuest = true), showMenu()),
+      play: () => showModes(),
+      guest: () => ((playingAsGuest = true), showModes()),
       back: () => showTitle({ focus: 'play' }),
     }),
   )
@@ -301,7 +319,7 @@ const showMenu = (initial: PlayableId = loadSave().partner) => {
   endRun()
   const select = starterSelect(ui, input, {
     pick: (id) => setTimeout(() => void startRun(id), 250),
-    back: () => showTitle({ focus: 'play' }),
+    back: () => showModes(),
     mart: () => showShop(),
     settings: () => setScreen(openSettings(ui, input, () => showMenu(select.selected()))),
     incubator: () => showIncubator(() => showMenu(select.selected())),
@@ -319,10 +337,21 @@ const runCompanion = (at: Vec): CompanionView | null => {
   return createCompanion(dex, c.shiny, at)
 }
 
-/** "Play with friends": rooms and invitations. It replaces the title and comes back to it on `focus`. */
-const showFriends = (focus: LobbyFocus = 'friends') => {
+/** JOGAR: solo, a room with friends, the invitations or a room code. */
+const showModes = () => {
   endRun()
-  setScreen(multiplayerScreen(ui, input, ctx, view, () => showTitle({ focus })))
+  setScreen(
+    playModesScreen(ui, input, {
+      back: () => showTitle({ focus: 'play' }),
+      pick: (mode: PlayMode) => (mode === 'solo' ? showMenu() : showFriends('play', mode)),
+    }),
+  )
+}
+
+/** "Play with friends": rooms and invitations. It replaces the title and comes back to it on `focus`. */
+const showFriends = (focus: LobbyFocus = 'friends', mode?: PlayMode) => {
+  endRun()
+  setScreen(multiplayerScreen(ui, input, ctx, view, () => (mode ? showModes() : showTitle({ focus })), mode === 'coop' || mode === 'versus' ? { mode } : mode === 'invites' ? { invites: true } : {}))
 }
 
 const showShop = () => setScreen(shop(ui, input, () => showMenu()))
@@ -1045,6 +1074,7 @@ const frame = (now: number) => {
   } else {
     // Attract mode: wild Pokémon stroll through the meadow behind the menus.
     stepTitleScene(scene, dt, view.w, view.h)
+    walkMeadowEggs()
     drawTitleScene(ctx, scene, view.w, view.h)
     ctx.fillStyle = `rgba(16,24,48,${screen?.dim ?? 0.35})`
     ctx.fillRect(0, 0, view.w, view.h)
