@@ -2,13 +2,13 @@ import type { RoomConnection } from './firebaseRooms'
 import type { MatchMode, Trainer } from '../game/multiplayer'
 
 /**
- * Dev builds only (`?devroom=coop|versus|duel`): an offline room with idle teammates that wander
+ * Dev builds only (`?devroom=coop|versus`): an offline room with idle teammates that wander
  * (the first walks off, to test the off-screen markers), to look at the match HUD and layouts without accounts or a second player.
  */
 export const createDevRoomConnection = (kind: string): RoomConnection => {
   const mode: MatchMode = kind === 'coop' ? 'coop' : 'versus'
   const bots: Trainer[] = [{ id: 'bot1', name: 'Misty', starter: 'squirtle', shiny: false }, { id: 'bot2', name: 'Brock', starter: 'bulbasaur', shiny: false }]
-  const players: Trainer[] = [{ id: 'me', name: 'Ash', starter: 'charmander', shiny: false }, ...(kind === 'duel' ? bots.slice(0, 1) : bots)]
+  const players: Trainer[] = [{ id: 'me', name: 'Ash', starter: 'charmander', shiny: false }, ...bots]
   let move = { x: 0, y: 0 }, special = false, tick = 0, timer: ReturnType<typeof setInterval> | null = null
   const commands: Array<{ id: string; kind: string; index?: number }> = []
   const conn: RoomConnection = {

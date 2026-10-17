@@ -216,7 +216,7 @@ export const parseChallengePlace = (v: unknown): ChallengePlace | null => {
 }
 
 /** A run on a public profile (`verified` as on `BoardEntry`). */
-export type ProfileRun = { starter: PlayableId; stage: number; difficulty: Difficulty; time: number; outcome: RunOutcome; at: string; verified: boolean | null }
+export type ProfileRun = { mode?: 'solo' | 'coop' | 'versus'; starter: PlayableId; stage: number; difficulty: Difficulty; time: number; outcome: RunOutcome; at: string; verified: boolean | null }
 
 /** What `/profiles/:handle` answers. `followed`: the asking player follows them; `self`: it's the asking player. */
 export type PublicProfile = ProfileName & {

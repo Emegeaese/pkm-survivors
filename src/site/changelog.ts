@@ -18,6 +18,20 @@ export type ChangelogEntry = {
  */
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    date: '2026-10-17',
+    title: { pt: 'Convites para a sala, recordes no perfil e plateia no versus', en: 'Room invitations, profile records and a crowd in versus' },
+    notes: [
+      {
+        pt: 'Convide amigos direto da sala, sem passar o código: marque amigos ao criar a sala ou use o botão Convidar dentro dela. Quem recebe vê o convite em Convites. O modo 1 contra 1 saiu: o Versus já serve para dois jogadores.',
+        en: 'Invite friends straight from the room, no code needed: tick friends when creating the room or press Invite inside it. They see the invitation under Invitations. The 1v1 mode is gone, because Versus already works for two players.',
+      },
+      {
+        pt: 'O perfil mostra também os recordes de cooperativo e o resumo do versus. No versus, Pokémon selvagens assistem à luta em volta da arena.',
+        en: 'Profiles now show co-op records and a versus summary. In versus, wild Pokémon watch the fight around the arena.',
+      },
+    ],
+  },
+  {
     date: '2026-10-16',
     title: { pt: 'Poké Mart renovado, títulos e mais fundos', en: 'New Poké Mart, titles and more backgrounds' },
     notes: [

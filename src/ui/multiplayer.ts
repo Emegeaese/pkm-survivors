@@ -1,6 +1,9 @@
 import type { Input } from '../engine/input'
 import { PLAYABLE, PLAYABLE_IDS, playableDex, type PlayableId } from '../data/hatchlings'
 import { DIFFICULTY_IDS } from '../game/difficulty'
+import { invitesScreen } from './invites'
+import { sendInvite, watchInvites } from '../firebaseInvites'
+import { listFriends, type FriendProfile } from '../firebaseSocial'
 import { pokemonPicker } from './pokemonPicker'
 import { showcaseDex } from './showcase'
 import { difficultyPicker } from './starterSelect'
@@ -15,11 +18,12 @@ import { rosterSchedule } from '../game/roster'
 import { render } from '../render/draw'
 import { progressArc } from '../render/mapEvents'
 import { drawJoystick } from '../render/joystick'
-import { drawPokemon, portraitUrl, loadAll, preloadShinies, sprites, streamSpecies } from '../render/sprites'
+import { createRng } from '../engine/rng'
+import { dir8 } from '../engine/math'
+import { drawPokemon, loadedSprites, portraitUrl, loadAll, preloadShinies, sprites, streamSpecies } from '../render/sprites'
 import { playSfx, unlockAudio } from '../engine/audio'
 import { accountState, accountUserId } from '../account'
 import { accountScreen } from './account'
-import { friendsScreen } from './friends'
 import { socialText } from '../i18n/social'
 import { publishSocialStats } from '../firebaseSocial'
 import { createFirebaseRoomConnection, type RoomConnection } from '../network/firebaseRooms'
@@ -56,20 +60,40 @@ export const multiplayerScreen = (root: HTMLElement, input: Input, ctx: CanvasRe
   const drawChosen = () => { chosenImg.src = portraitUrl(showcaseDex(chosen)); chosenName.textContent = PLAYABLE[chosen].name }
   const shiny = h('input', { type: 'checkbox' })
   const difficulty = difficultyPicker(save.difficulty)
-  const mode = h('select', { 'aria-label': m.friends }, h('option', { value: 'coop' }, m.coop), h('option', { value: 'versus' }, m.versus), h('option', { value: 'duel' }, m.duel))
+  const mode = h('select', { 'aria-label': m.friends }, h('option', { value: 'coop' }, m.coop), h('option', { value: 'versus' }, m.versus))
   // Difficulty only matters against the horde.
   mode.onchange = () => difficulty.el.classList.toggle('hidden', mode.value !== 'coop')
   const status = h('p', { role: 'status', 'aria-live': 'polite' }), players = h('div', { class: 'room-players' })
   const actions = h('div', { class: 'buttons' }), joinActions = h('div', { class: 'buttons' })
-  const config = h('div', { class: 'room-config' }, h('label', {}, m.collection, pokemon), h('label', {}, shiny, m.shiny), h('label', {}, m.friends, mode), difficulty.el, h('label', {}, m.code, code))
-  const panel = h('div', { class: 'feature-panel box room-panel' }, h('h1', {}, m.friends), h('p', {}, m.lobbyInfo), config, status, players, joinActions, actions)
+  // Friends to invite: ticked ones get the invitation as soon as the room exists, the rest can be invited from the room.
+  const friends: FriendProfile[] = [], ticked = new Set<string>(), invitedNow = new Set<string>()
+  const invitePick = h('div', { class: 'invite-pick hidden' }), inviteList = h('div', { class: 'invite-section hidden' })
+  const drawPick = () => {
+    const so = socialText()
+    invitePick.classList.toggle('hidden', friends.length === 0)
+    invitePick.replaceChildren(h('b', {}, so.inviteFriends), h('small', {}, so.inviteHint), h('div', { class: 'invite-chips' }, ...friends.map((f) => h('label', { class: 'invite-chip' }, h('input', { type: 'checkbox', checked: ticked.has(f.uid), onchange: (e: Event) => { if ((e.target as HTMLInputElement).checked) ticked.add(f.uid); else ticked.delete(f.uid) } }), f.name))))
+  }
+  const drawInvites = () => {
+    const so = socialText()
+    inviteList.classList.toggle('hidden', friends.length === 0 || !lobby)
+    inviteList.replaceChildren(h('b', {}, so.inviteFriends), h('div', { class: 'invite-chips' }, ...friends.map((f) => h('div', { class: 'invite-chip' }, f.name, h('button', { class: 'btn', disabled: invitedNow.has(f.uid), onclick: () => { void invite(f) } }, invitedNow.has(f.uid) ? so.invited : so.invite)))))
+  }
+  const invite = async (friend: FriendProfile) => {
+    if (!lobby || invitedNow.has(friend.uid)) return
+    try { await sendInvite(friend.uid, lobby.code, lobby.mode); invitedNow.add(friend.uid) } catch { status.textContent = socialText().inviteFailed }
+    drawInvites()
+  }
+  if (accountUserId()) void listFriends().then((list) => { friends.push(...list); drawPick() }).catch(() => {})
+  const config = h('div', { class: 'room-config' }, h('label', {}, m.collection, pokemon), h('label', {}, shiny, m.shiny), h('label', {}, m.friends, mode), difficulty.el, invitePick, h('label', {}, m.code, code))
+  const panel = h('div', { class: 'feature-panel box room-panel' }, h('h1', {}, m.friends), h('p', {}, m.lobbyInfo), config, status, players, inviteList, joinActions, actions)
   const el = h('div', { class: 'screen feature-screen room-screen' }, panel)
   root.append(el)
   let ws: RoomConnection | null = null, self = '', lobby: Lobby | null = null, match: Match | null = null, hud: Hud | null = null, overlay: Screen | null = null, authScreen: Screen | null = null
   let ranking: ReturnType<typeof startTeamRanking> | null = null
   let disposed = false, paid = false, ended = false, victoryShown = false, sequence = 0, sendAt = 0, timeout: ReturnType<typeof setTimeout> | null = null
   let paidCoins = 0, paidSummary: RunSummary | null = null, paidSteps = 0, paidEggs = 0
-  let paidTickets = 0
+  let paidTickets = 0, invitedTicked = false
+  let crowd: Spectator[] = []
   let special = false, mega = false, lunge = false
   let overlayKey: unknown = null
   let watching: string | null = null
@@ -147,10 +171,12 @@ export const multiplayerScreen = (root: HTMLElement, input: Input, ctx: CanvasRe
   }
   const command = (kind: string, index?: number) => send({ type: 'command', kind, index })
   const leave = () => { finish(true); disconnect(); later(back) }
+  let pendingInvites = 0, stopInvites = () => {}
+  if (accountUserId()) void watchInvites((list) => { pendingInvites = list.length; if (!lobby && !match && !authScreen) showJoin() }, () => {}).then((off) => { stopInvites = off }).catch(() => {})
   const showJoin = () => joinActions.replaceChildren(h('button', { class: 'btn', onclick: () => connect('create') }, m.create), h('button', { class: 'btn', onclick: () => connect('join') }, m.join),
     ...(accountUserId() ? [h('button', { class: 'btn', onclick: () => {
-      panel.classList.add('hidden'); authScreen = friendsScreen(root, input, () => { authScreen = null; panel.classList.remove('hidden'); showJoin() })
-    } }, socialText().friends)] : []),
+      panel.classList.add('hidden'); authScreen = invitesScreen(root, input, (invited) => { authScreen = null; panel.classList.remove('hidden'); code.value = invited; connect('join') }, () => { authScreen = null; panel.classList.remove('hidden'); showJoin() })
+    } }, socialText().invitations(pendingInvites))] : []),
     ...(!accountUserId() ? [h('button', { class: 'btn', onclick: () => {
       panel.classList.add('hidden'); authScreen = accountScreen(root, input, () => { authScreen = null; panel.classList.remove('hidden'); showJoin() })
     } }, f.login)] : []), h('button', { class: 'btn', onclick: leave }, m.back))
@@ -171,7 +197,7 @@ export const multiplayerScreen = (root: HTMLElement, input: Input, ctx: CanvasRe
   const showLobby = () => {
     if (!lobby) return
     const snapshot = lobby
-    config.classList.add('hidden'); joinActions.replaceChildren()
+    config.classList.add('hidden'); joinActions.replaceChildren(); drawInvites()
     status.textContent = `${lobby.code} · ${lobby.mode === 'coop' ? m.coop : m.versus}${snapshot.mode === 'coop' ? ` · ${t().difficulty.names[DIFFICULTY_IDS.find((d) => d === snapshot.difficulty) ?? 'normal']}` : ''}`
     players.replaceChildren(...lobby.players.map((p) => h('div', { class: 'room-player box' }, h('img', { src: `/assets/pokemon/${PLAYABLE[p.starter].line[0].dex}/portrait.png`, alt: '' }), h('b', {}, p.name), h('span', {}, PLAYABLE[p.starter].name), h('span', {}, p.ready ? '✓' : '…'))))
     const myself = lobby.players.find((p) => p.id === self)
@@ -189,7 +215,7 @@ export const multiplayerScreen = (root: HTMLElement, input: Input, ctx: CanvasRe
     try { ws = devRoom ? createDevRoomConnection(devRoom) : createFirebaseRoomConnection() } catch { fail(); return }
     const socket = ws
     timeout = setTimeout(() => { if (!lobby) fail() }, 10000)
-    ws.onopen = () => send({ type: kind, name: name.value, starter: selected(), shiny: shiny.checked && ownsShiny(save, selected()), mode: mode.value === 'duel' ? 'versus' : mode.value, difficulty: loadSave().difficulty, size: mode.value === 'duel' ? 2 : 4, code: code.value.trim().toUpperCase(), version: `${NETWORK_VERSION}:${__GAME_VERSION__}` })
+    ws.onopen = () => send({ type: kind, name: name.value, starter: selected(), shiny: shiny.checked && ownsShiny(save, selected()), mode: mode.value, difficulty: loadSave().difficulty, code: code.value.trim().toUpperCase(), version: `${NETWORK_VERSION}:${__GAME_VERSION__}` })
     ws.onerror = (code) => { if (ws === socket) fail(code === 'auth-required' ? f.loginRequired : code.includes('permission') || code.includes('PERMISSION') ? f.rules : f.error) }
     ws.onclose = () => { if (ws === socket && !ended) fail(m.disconnected) }
     ws.onmessage = (event) => {
@@ -198,7 +224,11 @@ export const multiplayerScreen = (root: HTMLElement, input: Input, ctx: CanvasRe
         const msg = JSON.parse(String(event.data))
         if (msg.type === 'hello') self = msg.id
         else if (msg.type === 'error') fail(m.unavailable)
-        else if (msg.type === 'lobby') { lobby = msg; if (timeout) clearTimeout(timeout); showLobby() }
+        else if (msg.type === 'lobby') {
+          lobby = msg; if (timeout) clearTimeout(timeout)
+          if (!invitedTicked && msg.host === self) { invitedTicked = true; for (const f of friends) if (ticked.has(f.uid)) void invite(f) }
+          showLobby()
+        }
         else if (msg.type === 'start') {
           if (timeout) clearTimeout(timeout)
           ranking = startTeamRanking(msg.mode, msg.players.map((p: Trainer) => p.id), msg.players.map((p: Trainer) => p.name))
@@ -214,6 +244,7 @@ export const multiplayerScreen = (root: HTMLElement, input: Input, ctx: CanvasRe
             return card
           }), h('button', { class: 'btn room-exit', onclick: leave }, m.leave))
           const schedule = rosterSchedule(match.game.roster).map((s) => s.dex)
+          crowd = match.mode === 'versus' ? buildCrowd(rosterSchedule(match.game.roster).filter((s) => s.at === 0).map((s) => s.dex), msg.seed) : []
           void streamSpecies(schedule)
           unlockAudio()
         } else if (msg.type === 'tick' && match && !ended) {
@@ -271,6 +302,7 @@ export const multiplayerScreen = (root: HTMLElement, input: Input, ctx: CanvasRe
     g.view = view; g.camera = { x: focus.x - view.w / 2, y: focus.y - 10 - view.h / 2 }
     g.attacks = match.members.flatMap((p) => p.state.attacks)
     render(ctx, g, time, settings())
+    if (match.mode === 'versus') drawCrowd(ctx, crowd, g.camera, view, time, versusRadius(g.time))
     for (const other of match.members) if (other !== member) {
       const p = other.state.player, x = Math.round(p.x - g.camera.x), y = Math.round(p.y - g.camera.y)
       ctx.save(); ctx.globalAlpha = p.hp > 0 ? 1 : 0.35
@@ -324,7 +356,30 @@ export const multiplayerScreen = (root: HTMLElement, input: Input, ctx: CanvasRe
   if (devRoom) later(() => connect('create'))
   const onVisibility = () => { if (document.hidden) send({ type: 'input', move: { x: 0, y: 0 } }) }
   document.addEventListener('visibilitychange', onVisibility)
-  return { el, tick, debug: () => match, playing: () => match && !ended ? selectMember(match, self) : null, dispose: () => { disposed = true; finish(true); disconnect(); off(); document.removeEventListener('visibilitychange', onVisibility); authScreen?.dispose(); overlay?.dispose(); hud?.dispose(); team.remove(); notice.remove(); spectator.remove(); el.remove() } }
+  return { el, tick, debug: () => match, playing: () => match && !ended ? selectMember(match, self) : null, dispose: () => { disposed = true; stopInvites(); finish(true); disconnect(); off(); document.removeEventListener('visibilitychange', onVisibility); authScreen?.dispose(); overlay?.dispose(); hud?.dispose(); team.remove(); notice.remove(); spectator.remove(); el.remove() } }
+}
+
+/** Wild Pokémon that gather around the arena to watch a versus match: decoration only, never part of the simulation. */
+type Spectator = { dex: number; angle: number; gap: number; phase: number }
+const CROWD = 18
+
+const buildCrowd = (dexes: number[], seed: number): Spectator[] => {
+  if (!dexes.length) return []
+  const rng = createRng(seed ^ 0x5eed)
+  return Array.from({ length: CROWD }, (_, i) => ({ dex: dexes[i % dexes.length]!, angle: (i / CROWD) * Math.PI * 2 + (rng() - 0.5) * 0.25, gap: 20 + rng() * 26, phase: rng() * Math.PI * 2 }))
+}
+
+/** The crowd stands just outside the shrinking arena, faces the fight and hops now and then. */
+const drawCrowd = (ctx: CanvasRenderingContext2D, crowd: Spectator[], camera: { x: number; y: number }, view: { w: number; h: number }, time: number, radius: number) => {
+  for (const s of crowd) {
+    const sheet = loadedSprites(s.dex)
+    if (!sheet) continue
+    const r = radius + s.gap, wx = Math.cos(s.angle) * r, wy = Math.sin(s.angle) * r
+    const hop = Math.round(Math.max(0, Math.sin(time * 5 + s.phase * 3)) * 3)
+    const x = Math.round(wx - camera.x), y = Math.round(wy - camera.y) - hop
+    if (x < -40 || x > view.w + 40 || y < -40 || y > view.h + 60) continue
+    drawPokemon(ctx, sheet, 'Idle', dir8(-wx, -wy), time + s.phase, x, y)
+  }
 }
 
 const hpColor = (ratio: number) => ratio > 0.5 ? '#5fe08a' : ratio > 0.25 ? '#ffd23f' : '#ff5a5a'

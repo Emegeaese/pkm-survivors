@@ -5684,3 +5684,15 @@ a.btn.dex-site {
 }
 .dialog.profile { height: min(780px, 100%); }
 .feature-panel:has(.firebase-rank-list) { min-height: min(620px, calc(100dvh - 48px)); }
+
+/* ---- Profile records: solo, co-op and versus ---- */
+.profile-subhead { display: block; margin: 6px 0 4px; font-size: 16px; color: #4a5a85; }
+.profile-versus { margin: 0; padding: 8px 12px; background: #e4e8f4; border-radius: 8px; font-size: 19px; }
+
+/* ---- Room invitations ---- */
+.invite-pick, .invite-section { display: flex; flex-direction: column; gap: 6px; padding: 10px; background: #15253b; border-radius: 8px; color: #f5f5e6; }
+.invite-pick small { color: #aebbd6; }
+.invite-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.invite-chip { display: inline-flex; align-items: center; gap: 8px; padding: 6px 10px; background: #243556; border: 2px solid #4a6190; border-radius: 16px; }
+.invite-chip .btn { min-height: 34px; padding: 4px 14px 4px 18px; color: var(--ink); }
+.invite-row { flex-direction: column; align-items: flex-start; }

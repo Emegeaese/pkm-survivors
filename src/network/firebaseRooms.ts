@@ -221,7 +221,6 @@ export const createFirebaseRoomConnection = (): RoomConnection => {
       const member: Member = { id: uid, name: String(message.name ?? 'Trainer').slice(0, 24), starter: message.starter as Trainer['starter'], shiny: message.shiny === true, ready: false, slot: 0 }
       if (message.type === 'create') {
         if (message.mode !== 'coop' && message.mode !== 'versus') return
-        roomSize = message.mode === 'versus' && message.size === 2 ? 2 : 4
         const random = new Uint32Array(1); crypto.getRandomValues(random)
         const rng = createRng(random[0]!)
         for (let i = 0; i < 5; i++) {
@@ -237,8 +236,7 @@ export const createFirebaseRoomConnection = (): RoomConnection => {
         if (!/^[A-F0-9]{6}$/.test(code)) { code = ''; throw new Error('unavailable') }
         const info = (await sdk.get(path('/info'))).val() as { phase?: string; version?: string; size?: number } | null
         if (!info || info.phase !== 'lobby' || info.version !== message.version) { code = ''; throw new Error('unavailable') }
-        // 1 vs 1 rooms only have a second seat.
-        for (let i = 1; i < (info.size === 2 ? 2 : 4); i++) {
+        for (let i = 1; i <= 3; i++) {
           const seat = await sdk.runTransaction(path(`/seats/${i}`), (value: string | null) => value ? undefined : uid)
           if (seat.committed) { slot = i; break }
         }

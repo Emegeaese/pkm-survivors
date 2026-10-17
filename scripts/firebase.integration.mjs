@@ -163,6 +163,22 @@ test('a teammate can add the missing line-up to a co-op record, and nothing else
   await assertFails(updateDoc(ref(db('lineup-a')), { lineup: [{ starter: 'eevee', stage: 0 }] }))
 })
 
+test('room invitations go only from a friend to that friend, and only the two can see them', async () => {
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), 'pkmFriendships', 'inv-a_inv-b'), { users: ['inv-a', 'inv-b'], from: 'inv-a', to: 'inv-b', status: 'accepted' })
+  })
+  const invite = (from, to, extra = {}) => ({ from, to, name: 'Ash', code: 'ABC123', mode: 'coop', createdAt: serverTimestamp(), ...extra })
+  const ref = (from, to) => doc(db(from), 'pkmInvites', from + '_' + to)
+  await assertSucceeds(setDoc(ref('inv-a', 'inv-b'), invite('inv-a', 'inv-b')))
+  await assertFails(setDoc(ref('inv-c', 'inv-b'), invite('inv-c', 'inv-b')))
+  await assertFails(setDoc(doc(db('inv-a'), 'pkmInvites', 'inv-b_inv-a'), invite('inv-b', 'inv-a')))
+  await assertFails(setDoc(ref('inv-a', 'inv-b'), invite('inv-a', 'inv-b', { code: 'nope' })))
+  await assertSucceeds(getDoc(doc(db('inv-b'), 'pkmInvites', 'inv-a_inv-b')))
+  await assertFails(getDoc(doc(db('inv-c'), 'pkmInvites', 'inv-a_inv-b')))
+  await assertFails(deleteDoc(doc(db('inv-c'), 'pkmInvites', 'inv-a_inv-b')))
+  await assertSucceeds(deleteDoc(doc(db('inv-b'), 'pkmInvites', 'inv-a_inv-b')))
+})
+
 const startRun = async (uid, id, mode = 'solo', challenge = null) => {
   const store = db(uid), team = mode === 'solo' ? [uid] : [uid, `${uid}-friend`]
   await setDoc(doc(store, 'pkmStarts', id), { id, uid, mode, team, names: team, teamSize: team.length, teamId: [...team].sort().join('_'), challenge, startedAt: serverTimestamp() })

@@ -366,6 +366,17 @@ service cloud.firestore {
         && request.resource.data.updatedAt == request.time;
       allow delete: if request.auth != null && request.auth.uid in resource.data.users;
     }
+    // A friend's invitation to a room: one per pair, the newest code wins; only the two of them see it.
+    match /pkmInvites/{id} {
+      allow read: if request.auth != null && (resource.data.to == request.auth.uid || resource.data.from == request.auth.uid);
+      allow create, update: if request.auth != null && request.resource.data.keys().hasOnly(['from', 'to', 'name', 'code', 'mode', 'createdAt'])
+        && request.resource.data.from == request.auth.uid && id == request.resource.data.from + '_' + request.resource.data.to
+        && pkmFriends(request.resource.data.from, request.resource.data.to)
+        && request.resource.data.name is string && request.resource.data.name.size() >= 1 && request.resource.data.name.size() <= 24
+        && request.resource.data.code is string && request.resource.data.code.matches('^[A-F0-9]{6}$')
+        && request.resource.data.mode in ['coop', 'versus'] && request.resource.data.createdAt == request.time;
+      allow delete: if request.auth != null && (resource.data.to == request.auth.uid || resource.data.from == request.auth.uid);
+    }
     function pkmOffer(o) {
       return o == null || (o is map && o.keys().hasOnly(['id', 'shiny', 'key'])
         && o.id is string && o.id.matches('^[a-z0-9-]{1,40}$') && o.shiny is bool

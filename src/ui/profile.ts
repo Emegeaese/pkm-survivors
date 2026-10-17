@@ -61,7 +61,7 @@ const recentRow = (run: ProfileRun) =>
     h('span', { class: 'profile-run-name' }, runForm(run.starter, run.stage).name),
     difficultyTag(run.difficulty),
     h('b', {}, formatTime(run.time)),
-    h('small', {}, `${run.verified === null ? t().ranking.pending : t().ranking.outcomes[run.outcome]} · ${runDay(run.at)}`),
+    h('small', {}, `${run.mode === 'coop' ? 'Co-op · ' : run.mode === 'versus' ? 'Versus · ' : ''}${run.verified === null ? t().ranking.pending : t().ranking.outcomes[run.outcome]} · ${runDay(run.at)}`),
   )
 
 /** The Desafio do dia ribbons won, gold first, or null before the first one (or from an older API). */
@@ -97,6 +97,10 @@ const favourites = (p: PublicProfile): { ids: PlayableId[]; picked: boolean } =>
   for (const run of p.recent) counts.set(run.starter, (counts.get(run.starter) ?? 0) + 1)
   return { ids: [...counts].sort((a, b) => b[1] - a[1]).slice(0, 3).map(([id]) => id), picked: false }
 }
+
+/** The longest recent run of a mode and difficulty (co-op records come from the runs the profile lists). */
+const bestOf = (runs: readonly ProfileRun[], mode: 'coop' | 'versus', difficulty: Difficulty) =>
+  runs.filter((r) => r.mode === mode && r.difficulty === difficulty).sort((a, b) => b.time - a.time)[0]
 
 /** Totals over the recent runs the profile lists. */
 const historyTiles = (p: PublicProfile) => {
@@ -191,7 +195,15 @@ export const profileScreen = (root: HTMLElement, input: Input, handle: string, o
           : []),
         section(s.friends, friendsBox),
         section(s.matchHistory, historyTiles(p)),
-        section(m.records, h('div', { class: 'profile-records' }, ...DIFFICULTY_IDS.map((d) => recordCell(d, p.records[d])))),
+        section(
+          m.records,
+          h('small', { class: 'profile-subhead' }, s.recordsSolo),
+          h('div', { class: 'profile-records' }, ...DIFFICULTY_IDS.map((d) => recordCell(d, p.records[d]))),
+          h('small', { class: 'profile-subhead' }, s.recordsCoop),
+          h('div', { class: 'profile-records' }, ...DIFFICULTY_IDS.map((d) => recordCell(d, bestOf(p.recent, 'coop', d)))),
+          h('small', { class: 'profile-subhead' }, s.recordsVersus),
+          h('p', { class: 'profile-versus' }, p.online ? s.versusTally(p.online.versusWins, p.online.versusRuns) : '—'),
+        ),
         ...(p.online ? [section(s.onlineStats, h('div', { class: 'online-stats' }, ...ONLINE_STATS.map((key) => h('div', {}, h('span', {}, s[key]), h('b', {}, p.online![key])))))] : []),
         ribbonRow(p.ribbons),
         section(

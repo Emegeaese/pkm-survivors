@@ -50,6 +50,11 @@ export const setProfileLook = async (look: ProfileLook) => {
   await updateDoc(doc(firestore, 'pkmProfiles', uid), { photo: look.photo ?? deleteField(), wall: look.wall ?? deleteField(), favs: look.favs?.length ? look.favs.slice(0, 3) : deleteField(), title: look.title ?? deleteField(), updatedAt: serverTimestamp() })
   return true
 }
+/** The accepted friends, with their names. */
+export const listFriends = async (): Promise<FriendProfile[]> => {
+  const ids = [...(await friendIds())]
+  return (await Promise.all(ids.map((id) => readTrainer(id).catch(() => null)))).filter((f): f is FriendProfile => f !== null)
+}
 export const requestFriend = async (handle: string) => {
   const uid = accountUserId(), other = await findTrainer(handle)
   if (!uid || !other || uid === other.uid) return false
