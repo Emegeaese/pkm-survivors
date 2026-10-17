@@ -18,6 +18,7 @@ import { bagIcon, eggIcon, moveIcon, PICKUPS, sparkleIcon } from '../render/art'
 import { specialIcon } from '../render/specialFx'
 import { cryUrl, drawPokemon, loadAll, loadedSprites, loadSpecies, portraitUrl } from '../render/sprites'
 import { t } from '../i18n'
+import { boundKey } from './controls'
 import { h, later, rich } from './dom'
 import { loadSave, updateSave } from './save'
 import { showcaseDex } from './showcase'
@@ -137,9 +138,9 @@ export const inspectPanel = (id: PlayableId, stage: number, onStage: (stage: num
     h('div', { class: 'stat-bars' }, ...bars),
     h('div', { class: 'inspect-section' }, m.title.evolution),
     h('div', { class: 'evo-line' }, ...evo),
-    h('div', { class: 'inspect-section' }, m.title.special, h('span', { class: 'legend' }, m.spaceKey)),
+    h('div', { class: 'inspect-section' }, m.title.special, h('span', { class: 'legend' }, boundKey('special'))),
     specialRow(id),
-    ...(megas.length > 0 ? [h('div', { class: 'inspect-section' }, megas.length > 1 ? m.mega.sectionTwo : m.mega.section, h('span', { class: 'legend' }, m.mega.key)), ...megas.map(megaRow)] : []),
+    ...(megas.length > 0 ? [h('div', { class: 'inspect-section' }, megas.length > 1 ? m.mega.sectionTwo : m.mega.section, h('span', { class: 'legend' }, boundKey('mega'))), ...megas.map(megaRow)] : []),
     h('div', { class: 'inspect-section' }, m.title.moves),
     h('div', { class: 'move-list' }, ...s.learnset.map((m) => moveRow(m, m === s.signature))),
   )
