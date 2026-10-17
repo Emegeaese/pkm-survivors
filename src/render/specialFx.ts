@@ -1,4 +1,4 @@
-import { blitCentered, blitRotated, context2d, createCanvas, ellipse, fromStrings, type PixelSprite } from '../engine/pixelart'
+import { blitCentered, blitRotated, canvasCache, context2d, createCanvas, ellipse, fromStrings, lazy, type PixelSprite } from '../engine/pixelart'
 import { TAU } from '../engine/math'
 import { TYPE_COLORS, type PokeType } from '../data/types'
 import { gameSpecial, SPECIALS, specialOfType, specialReach, type SpecialId } from '../game/special'
@@ -10,11 +10,6 @@ import type { Form } from './sprites'
 /** Code-drawn pixel art for the special attacks (`game/special.ts`). */
 
 type Ctx = CanvasRenderingContext2D
-
-const lazy = <T>(build: () => T) => {
-  let value: T | undefined
-  return () => (value ??= build())
-}
 
 const ROOT = [
   '....1....', '...151...', '...121...', '..1231...', '..12321..', '.512321..', '1.12321..',
@@ -38,7 +33,7 @@ const pixelRing = (ctx: Ctx, x: number, y: number, r: number, thickness: number,
   }
 }
 
-const slabCache = new Map<string, PixelSprite>()
+const slabCache = canvasCache<string, PixelSprite>()
 
 /** One slice of the water beam: blue edges, white core, with flowing streaks (2 frames). */
 const beamSlab = (width: number, frame: number) => {
@@ -133,7 +128,7 @@ const GLYPHS: Record<FormSpecial, { rows: readonly string[]; turn?: boolean }> =
   mysticalFire: { rows: ['....1....', '...121...', '..12321..', '.1234321.', '.1234321.', '123444321', '123444321', '.1234321.', '..11111..'] },
 }
 
-const glyphCache = new Map<FormSpecial, PixelSprite>()
+const glyphCache = canvasCache<FormSpecial, PixelSprite>()
 
 /** A special's piece, outlined so it reads on any biome. */
 const glyph = (id: FormSpecial) => {
@@ -247,7 +242,7 @@ const SLASH = [
   '1.1...........1.1',
 ]
 
-const slashCache = new Map<PokeType, PixelSprite>()
+const slashCache = canvasCache<PokeType, PixelSprite>()
 
 const slashSprite = (type: PokeType) => {
   const cached = slashCache.get(type)
@@ -258,7 +253,7 @@ const slashSprite = (type: PokeType) => {
   return sprite
 }
 
-const streakCache = new Map<PokeType, PixelSprite>()
+const streakCache = canvasCache<PokeType, PixelSprite>()
 
 /** One 10 px slice of the speed line the lunge leaves: type-colored edges, white core. */
 const streakSprite = (type: PokeType) => {
