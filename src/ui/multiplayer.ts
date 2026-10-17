@@ -32,6 +32,7 @@ import { featureText } from '../i18n/features'
 import { h, later } from './dom'
 import { bankEggs, depositPokeDollars, loadSave, recordRunProgress, updateSave } from './save'
 import { settings } from './settings'
+import { blitCentered, nameSprite } from '../engine/pixelart'
 import { createHud, type Hud } from './hud'
 import { levelUp, type Screen } from './screens'
 
@@ -278,8 +279,7 @@ export const multiplayerScreen = (root: HTMLElement, input: Input, ctx: CanvasRe
       ctx.fillStyle = '#000'; ctx.fillRect(x - 13, y - 26, 26, 6)
       ctx.fillStyle = '#3b4252'; ctx.fillRect(x - 12, y - 25, 24, 4)
       ctx.fillStyle = hpColor(ratio); ctx.fillRect(x - 12, y - 25, Math.round(24 * ratio), 4)
-      ctx.font = 'bold 8px monospace'; ctx.textAlign = 'center'
-      outlined(ctx, other.trainer.name.slice(0, 12), x, y - 29, match.mode === 'coop' ? '#9dffc0' : '#ff9aa6')
+      blitCentered(ctx, nameSprite(other.trainer.name.slice(0, 12), match.mode === 'coop' ? '#9dffc0' : '#ff9aa6'), x, y - 31)
       ctx.restore()
       if (match.mode === 'coop' && other.connected && (x < 0 || y < 0 || x > view.w || y > view.h)) allyArrow(ctx, view, x, y, other.trainer.name, p.hp > 0)
     }
@@ -329,13 +329,6 @@ export const multiplayerScreen = (root: HTMLElement, input: Input, ctx: CanvasRe
 
 const hpColor = (ratio: number) => ratio > 0.5 ? '#5fe08a' : ratio > 0.25 ? '#ffd23f' : '#ff5a5a'
 
-/** Text with a dark outline so teammates' names read over any ground. */
-const outlined = (ctx: CanvasRenderingContext2D, text: string, x: number, y: number, color: string) => {
-  ctx.fillStyle = '#000'
-  for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]] as const) ctx.fillText(text, x + dx, y + dy)
-  ctx.fillStyle = color; ctx.fillText(text, x, y)
-}
-
 /** A marker on the screen edge pointing at a teammate who is out of view (red when they are down). */
 const allyArrow = (ctx: CanvasRenderingContext2D, view: { w: number; h: number }, x: number, y: number, name: string, standing: boolean) => {
   const cx = view.w / 2, cy = view.h / 2, dx = x - cx, dy = y - cy
@@ -345,9 +338,7 @@ const allyArrow = (ctx: CanvasRenderingContext2D, view: { w: number; h: number }
   ctx.fillStyle = color; ctx.strokeStyle = '#000'; ctx.lineWidth = 1.5
   ctx.beginPath(); ctx.moveTo(8, 0); ctx.lineTo(-5, -6); ctx.lineTo(-5, 6); ctx.closePath(); ctx.stroke(); ctx.fill()
   ctx.restore()
-  ctx.save(); ctx.font = 'bold 7px monospace'; ctx.textAlign = 'center'
-  outlined(ctx, name.slice(0, 8), Math.min(view.w - 22, Math.max(22, ex - Math.cos(angle) * 20)), Math.min(view.h - 6, Math.max(10, ey - Math.sin(angle) * 14 + 3)), color)
-  ctx.restore()
+  blitCentered(ctx, nameSprite(name.slice(0, 8), color), Math.round(Math.min(view.w - 22, Math.max(22, ex - Math.cos(angle) * 20))), Math.round(Math.min(view.h - 6, Math.max(10, ey - Math.sin(angle) * 14))))
 }
 
 const canvasScale = (ctx: CanvasRenderingContext2D, view: { w: number }) => ctx.canvas.getBoundingClientRect().width / view.w

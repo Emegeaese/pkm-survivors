@@ -183,7 +183,7 @@ const drawOne = (ctx: Ctx, id: WeatherId, alpha: number, g: Game, camX: number, 
   const { w, h } = g.view
   ctx.save()
   ctx.globalAlpha = alpha
-  if (id === 'fog') fog(ctx, w, h, camX, camY, t, g.player.x - camX, g.player.y - 10 - camY)
+  if (id === 'fog') fog(ctx, w, h, camX, camY, t, w / 2, h / 2)
   else DRAW[id](ctx, w, h, camX, camY, t)
   ctx.restore()
 }

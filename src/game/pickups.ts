@@ -105,6 +105,14 @@ export const updatePickups = (g: Game, dt: number) => {
   for (const k of g.pickups) {
     if (k.kind === 'megaStone' && k.owner && k.owner !== g.trainerId) continue
     k.age += dt
+    // In co-op one trainer reels a pickup in; the others leave it alone (and take it back if the puller never lands it).
+    if (k.attracted && g.trainerId !== undefined) {
+      if (k.puller === undefined) { k.puller = g.trainerId; k.pullAt = k.age }
+      else if (k.puller !== g.trainerId) {
+        if (k.age - (k.pullAt ?? k.age) > 2.5) { k.attracted = false; k.puller = undefined; k.vx = 0; k.vy = 0 }
+        continue
+      }
+    }
     const d2 = dm.sq(k.x - p.x) + dm.sq(k.y - (p.y - 6))
     if (choosing && k.kind === 'megaStone') {
       if (d2 < dm.sq(p.radius + 8)) {
@@ -115,6 +123,7 @@ export const updatePickups = (g: Game, dt: number) => {
     }
     if (!k.attracted && d2 < magnet2) {
       k.attracted = true
+      if (g.trainerId !== undefined) { k.puller = g.trainerId; k.pullAt = k.age }
       // Tiny hop away before being sucked in – the classic survivors feel.
       const d = dirTo(p.x, p.y, k.x, k.y)
       k.vx = d.x * 70

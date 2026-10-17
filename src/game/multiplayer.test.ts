@@ -53,6 +53,16 @@ describe('shared multiplayer simulation', () => {
     expect(Math.abs(mine - (chasers.length - mine))).toBeLessThanOrEqual(Math.ceil(chasers.length * 0.4))
     expect(chasers.some((e) => e.target === b!.state.player)).toBe(true)
   })
+  it('lets one trainer reel a pickup in, instead of a far teammate tugging it back', () => {
+    const m = createMatch(trainers, 'coop', 9)
+    m.game.spawnBudget = -10000
+    const [a, b] = m.members
+    a!.state.player.x = 0; a!.state.player.y = 0
+    b!.state.player.x = 400; b!.state.player.y = 0
+    dropXp(m.game, 26, -6, 1)
+    for (let i = 0; i < 180; i++) stepMatch(m, {})
+    expect(m.game.pickups.filter((k) => k.kind === 'xp')).toHaveLength(0)
+  })
   it('reproduces the same world, upgrades and checksums on independent clients', () => {
     const a = createMatch(trainers, 'coop', 125), b = createMatch(trainers, 'coop', 125)
     for (let tick = 0; tick < 600; tick++) {

@@ -234,6 +234,9 @@ export type Pickup = {
   vy: number
   /** True once it's being pulled into the player. */
   attracted: boolean
+  /** Network co-op: the trainer pulling it, and when (`age`), so teammates do not tug at it too. */
+  puller?: string
+  pullAt?: number
   age: number
 } & ({ kind: 'xp'; value: number } | { kind: 'coin'; value: number } | { kind: 'berry' } | { kind: 'pokeball' } | { kind: 'megaStone'; mega: MegaId; owner?: string } | { kind: 'consumable'; item: ConsumableId })
 
