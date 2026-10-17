@@ -58,6 +58,7 @@ const publish = async (session: Start, result: RunResult, finishedAt = new Date(
       const wins = Number(before?.wins ?? 0) + (session.mode === 'versus' && won && !old ? 1 : 0)
       if (session.mode === 'versus') tx.set(records[i]!.ref, { ...entry, wins, score: wins })
       else if (!before || result.time > Number(before.time)) tx.set(records[i]!.ref, entry)
+      else if (session.mode === 'coop' && session.lineup?.length && !before.lineup) tx.update(records[i]!.ref, { lineup: session.lineup })
     }
     if (dailyRef && official) tx.set(dailyRef, entry)
     tx.set(runRef, { ...entry, mode: session.mode, startId: session.id, updatedAt: serverTimestamp() })

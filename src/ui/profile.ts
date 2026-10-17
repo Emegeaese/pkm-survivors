@@ -184,10 +184,10 @@ export const profileScreen = (root: HTMLElement, input: Input, handle: string, o
           h('img', { class: 'profile-portrait', src: headPortrait(p), alt: '' }),
           h('div', { class: 'profile-id' }, h('b', { class: 'profile-name' }, p.name), h('span', { class: 'profile-handle' }, `@${p.handle}`), titleBadge(p.title)),
         ),
-        h('p', { class: 'profile-social' }, [s.friendsOf((p.friends ?? []).length), ...(p.brought ? [m.brought(p.brought)] : [])].join(' · ')),
+        ...(p.brought ? [h('p', { class: 'profile-social' }, m.brought(p.brought))] : []),
         !p.self && !signedIn ? note(m.followGuest) : null,
         ...(fav.ids.length
-          ? [section(fav.picked ? s.favorites : s.mostUsed, h('div', { class: 'profile-favs' }, ...fav.ids.map((id) => h('div', { class: 'profile-fav', title: finalForm(id).name }, h('img', { src: portraitUrl(finalForm(id).dex), alt: finalForm(id).name }), h('span', {}, PLAYABLE[id].name)))))]
+          ? [section(fav.picked ? s.favorites : s.mostUsed, h('div', { class: 'profile-favs' }, ...fav.ids.map((id) => h('div', { class: 'profile-fav', title: finalForm(id).name }, h('img', { src: portraitUrl(finalForm(id).dex), alt: finalForm(id).name }), h('span', {}, finalForm(id).name)))))]
           : []),
         section(s.friends, friendsBox),
         section(s.matchHistory, historyTiles(p)),

@@ -410,7 +410,10 @@ const emptyGrid = (ctx: CanvasRenderingContext2D, x: number, y: number, w: numbe
     blit(ctx, PICKUPS.pokeball(), cx + cellW / 2, y + GRID.cellH / 2 - 4)
     ctx.globalAlpha = 1
   }
-  text(ctx, t().share.card.noShinies, x + w / 2, y + GRID.cellH - 5, { align: 'center', color: MUTED })
+  // The note sits on a pill over the cells, so it never fights with their edges.
+  const note = t().share.card.noShinies, noteW = textWidth(note) + 14
+  rounded(ctx, Math.round(x + w / 2 - noteW / 2), y + Math.round(GRID.cellH / 2) + 2, noteW, 14, '#10183a')
+  text(ctx, note, x + w / 2, y + Math.round(GRID.cellH / 2) + 13, { align: 'center', color: '#e8ecff' })
 }
 
 const MOVE_ROW = 14
@@ -621,8 +624,11 @@ export const drawTrainerCard = async (card: TrainerCardData, style: CardStyle = 
   const textW = INNER.w - 104
   text(ctx, m.idLabel, x + 9, y + 14, { color: MUTED })
   text(ctx, fit(card.name ?? m.guest, textW, 'title', 8), x + 9, y + 26, { font: 'title', size: 8 })
-  if (card.trainer.handle) text(ctx, fit(`@${card.trainer.handle}`, textW), x + 9, y + 38, { color: BOX_FRAME })
-  if (card.trainer.title) text(ctx, fit(`★ ${card.trainer.title}`, textW), x + 9, y + 50, { color: '#b07800' })
+  // The handle only when it says something the name does not.
+  const sameAsName = card.trainer.handle !== null && card.name !== null && card.name.toLowerCase() === card.trainer.handle.toLowerCase()
+  let line = y + 38
+  if (card.trainer.handle && !sameAsName) { text(ctx, fit(`@${card.trainer.handle}`, textW), x + 9, line, { color: BOX_FRAME }); line += 12 }
+  if (card.trainer.title) text(ctx, fit(`★ ${card.trainer.title}`, textW), x + 9, line, { color: '#b07800' })
   rect(ctx, x + 9, y + 56, textW, 1, '#d8dce8')
   // Medals in a row after their label, gold first.
   const medalsX = x + 9 + text(ctx, m.medals, x + 9, y + 74, { color: MUTED }) + 6
@@ -652,7 +658,8 @@ export const drawTrainerCard = async (card: TrainerCardData, style: CardStyle = 
   if (card.showcase.length > 0) await monGrid(ctx, card.showcase, INNER.x, gridY! + 12, INNER.w)
   else emptyGrid(ctx, INNER.x, gridY! + 12, INNER.w)
 
-  footer(ctx, card.trainer, CARD.h - 8 - FOOTER_H)
+  // Who it is already says in the ID above: the footer only invites.
+  footer(ctx, { ...card.trainer, handle: null, title: null }, CARD.h - 8 - FOOTER_H)
   return finish(canvas, ctx, style)
 }
 

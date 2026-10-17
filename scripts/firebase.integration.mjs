@@ -149,6 +149,20 @@ test('presence is public to read, but each trainer writes only their own entry',
   await assertSucceeds(get(ref(guest, 'pkmPresence')))
 })
 
+test('a teammate can add the missing line-up to a co-op record, and nothing else', async () => {
+  const board = 'coop_normal_2_all_all'
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), 'pkmBoards', board, 'entries', 'lineup-a_lineup-b'), { uid: 'lineup-a', team: ['lineup-a', 'lineup-b'], names: ['A', 'B'], time: 100, score: 100 })
+  })
+  const ref = (c) => doc(c, 'pkmBoards', board, 'entries', 'lineup-a_lineup-b')
+  const lineup = [{ starter: 'charmander', stage: 2 }, { starter: 'squirtle', stage: 1 }]
+  await assertFails(updateDoc(ref(db('lineup-stranger')), { lineup }))
+  await assertFails(updateDoc(ref(db('lineup-b')), { lineup, time: 999 }))
+  await assertFails(updateDoc(ref(db('lineup-b')), { lineup: [] }))
+  await assertSucceeds(updateDoc(ref(db('lineup-b')), { lineup }))
+  await assertFails(updateDoc(ref(db('lineup-a')), { lineup: [{ starter: 'eevee', stage: 0 }] }))
+})
+
 const startRun = async (uid, id, mode = 'solo', challenge = null) => {
   const store = db(uid), team = mode === 'solo' ? [uid] : [uid, `${uid}-friend`]
   await setDoc(doc(store, 'pkmStarts', id), { id, uid, mode, team, names: team, teamSize: team.length, teamId: [...team].sort().join('_'), challenge, startedAt: serverTimestamp() })

@@ -1017,6 +1017,7 @@ button {
 }
 
 .btn {
+  position: relative;
   font-family: var(--title);
   font-size: 10px;
   min-height: 44px;
@@ -1032,7 +1033,13 @@ button {
 }
 
 .btn.selected::before {
-  content: '▶ ';
+  /* Out of the flow, so selecting a button never moves its words. */
+  content: '▶';
+  position: absolute;
+  left: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 8px;
   color: #e83838;
 }
 

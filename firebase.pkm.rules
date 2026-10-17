@@ -97,6 +97,10 @@
     }
     match /pkmBoards/{board}/entries/{entry} {
       allow read: if true;
+      // A teammate may add the missing line-up to a co-op record, and nothing else.
+      allow update: if request.auth != null && board.matches('^coop_.*') && resource.data.team is list && request.auth.uid in resource.data.team
+        && !('lineup' in resource.data) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lineup'])
+        && request.resource.data.lineup is list && request.resource.data.lineup.size() >= 1 && request.resource.data.lineup.size() <= 4;
       allow create, update: if pkmRun(request.resource.data) && pkmStarted(request.resource.data)
         && getAfter(/databases/$(database)/documents/pkmRuns/$(request.resource.data.runId)).data.time == request.resource.data.time
         && getAfter(/databases/$(database)/documents/pkmRuns/$(request.resource.data.runId)).data.uid == request.auth.uid
