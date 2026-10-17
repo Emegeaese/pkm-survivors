@@ -2,6 +2,7 @@ import { canvasCache, context2d, createCanvas, fromStrings, lazy, type Palette, 
 import type { Medal } from '../data/achievements'
 import type { ItemId } from '../data/items'
 import type { BagItem } from '../game/bag'
+import type { SupporterTier } from '../game/supporters'
 import type { EggTier } from '../game/eggs'
 import type { RibbonTier } from '../game/ribbons'
 import type { UpgradeId } from '../game/meta'
@@ -54,6 +55,9 @@ const SHURIKEN = ['...1...', '...1...', '..121..', '1112111', '..121..', '...1..
 const JAW = ['.111111111.', '12222222221', '13.3.3.3.31']
 const ORB = ['..111..', '.12221.', '1223221', '1233321', '1223221', '.12221.', '..111..']
 const HEART = ['.11.11.', '1221221', '1232221', '1222221', '.12221.', '..121..', '...1...']
+/** Settings gear and help mark for the menus' top bar (`ui/shell.ts`): one ink color, holes see through to the button. */
+const GEAR = ['....1111....', '.11.1111.11.', '.1111111111.', '..11111111..', '11111..11111', '1111....1111', '1111....1111', '11111..11111', '..11111111..', '.1111111111.', '.11.1111.11.', '....1111....']
+const HELP = ['.111111.', '11111111', '111..111', '....1111', '...1111.', '..1111..', '..111...', '........', '..111...', '..111...']
 const NOTE = ['...11.', '...121', '...1.1', '...1..', '.111..', '1221..', '.11...']
 const BLADE = ['.......11', '.....1121', '...11231.', '.11231...', '1231.....', '11.......']
 
@@ -245,6 +249,33 @@ const SPARKLES = [
 ] as const
 
 export const SPARKLE = lazy(() => SPARKLES.map((rows) => fromStrings(rows, { 1: '#f8e070', 2: '#ffffff' })))
+
+/* ---------------- Lobby emotes (render/titleScene.ts) ---------------- */
+
+/** A speech bubble with its tail at the bottom; the 7×7 icon goes at (2, 2). */
+const BUBBLE = [
+  '..1111111..', '.122222221.', '12222222221', '12222222221', '12222222221', '12222222221', '12222222221',
+  '12222222221', '12222222221', '.122222221.', '..1112111..', '....121....', '.....1.....',
+]
+const EMOTE_ICONS = {
+  heart: { rows: ['.11.11.', '1211111', '1111111', '1111111', '.11111.', '..111..', '...1...'], palette: { 1: '#e83850', 2: '#ffb8c8' } },
+  note: { rows: ['...11..', '...1.1.', '...1..1', '...1...', '.111...', '1111...', '.11....'], palette: { 1: '#3868d0' } },
+  bang: { rows: ['..111..', '..111..', '..111..', '...1...', '.......', '..111..', '..111..'], palette: { 1: '#e83838' } },
+  sparkle: { rows: SPARKLES[2], palette: { 1: '#e8a800', 2: '#f8e070' } },
+} as const satisfies Record<string, { rows: readonly string[]; palette: Palette }>
+
+export type Emote = keyof typeof EMOTE_ICONS
+
+/** PMD-style emote bubbles the lobby's Pokémon pop over their heads when they meet. */
+export const EMOTES = lazy(() => {
+  const build = (icon: (typeof EMOTE_ICONS)[Emote]) => {
+    const sprite = fromStrings(BUBBLE, { 1: '#283040', 2: '#f8f8f8' })
+    context2d(sprite).drawImage(fromStrings(icon.rows, icon.palette), 2, 2)
+    return sprite
+  }
+  const { heart, note, bang, sparkle } = EMOTE_ICONS
+  return { heart: build(heart), note: build(note), bang: build(bang), sparkle: build(sparkle) } satisfies Record<Emote, PixelSprite>
+})
 
 /* ---------------- Boss hazards ---------------- */
 
@@ -502,6 +533,13 @@ export const coinIcon = (tier = 0) => toIconUrl(`coin:${tier}`, () => PICKUPS.co
 export const candyIcon = (tier: number) => toIconUrl(`candy:${tier}`, () => PICKUPS.candy()[tier]!)
 export const berryIcon = () => toIconUrl('berry', PICKUPS.berry)
 export const pokeballIcon = () => toIconUrl('pokeball', PICKUPS.pokeball)
+export const heartIcon = () => toIconUrl('heart', FX.heart)
+export const gearIcon = () => toIconUrl('gear', () => art(GEAR, { 1: '#303040' }))
+export const helpIcon = () => toIconUrl('help', () => art(HELP, { 1: '#303040' }))
+
+/** The supporter's badge by their names (`game/supporters.ts`): a rose heart, a gold one for the gold tier. */
+export const supporterIcon = (tier: SupporterTier) =>
+  tier === 'gold' ? toIconUrl('heart:gold', () => art(HEART, { 1: '#c88a10', 2: '#f8d030', 3: '#fffbe0' }, '#4a3008')) : heartIcon()
 export const sparkleIcon = () => toIconUrl('sparkle', () => outlined(SPARKLE()[2]!, '#584010'))
 
 /** PlayStation's face buttons in their colors, the size of a Press Start 2P letter: the pixel fonts have no ✕ ○ □ △ (see `ui/inputLabels.ts`). */
@@ -536,6 +574,25 @@ const GIFT = [
 ]
 
 export const giftIcon = () => toIconUrl('gift', () => art(GIFT, { 1: '#301018', 2: '#f8d030', 3: '#e83850', 4: '#a82038', 5: '#c89000' }))
+
+/** Ideias (the idea board): a lit bulb. 1 outline, 2 glass, 3 shine, 4 shade, 5-6 the screw base. */
+const BULB = [
+  '...11111...',
+  '..1322221..',
+  '.132222241.',
+  '13222222241',
+  '13222222241',
+  '12222222241',
+  '.122222441.',
+  '..1224441..',
+  '...12241...',
+  '...15551...',
+  '...16661...',
+  '...15551...',
+  '....111....',
+]
+
+export const bulbIcon = () => toIconUrl('bulb', () => art(BULB, { 1: '#303040', 2: '#f8d030', 3: '#fff8c0', 4: '#c89000', 5: '#c8d0e0', 6: '#7880a0' }))
 
 /* ---------------- Medals ---------------- */
 

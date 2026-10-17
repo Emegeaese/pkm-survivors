@@ -8,6 +8,7 @@ import { outbreakAt } from '../game/outbreak'
 import { depositEggs, type Egg } from '../game/eggs'
 import { parseSave, recordHatch, recordRun, type Save } from '../game/meta'
 import type { RunSummary } from '../game/tally'
+import { STICK_MODES, type StickMode } from '../engine/input'
 import { DAMAGE_NUMBERS, type DamageNumbers } from '../render/damageNumbers'
 import { DEFAULT_BINDINGS, parseBindings, type Bindings } from '../engine/bindings'
 
@@ -146,6 +147,8 @@ export type Settings = {
   screenShake: boolean
   /** Remapped keys and gamepad buttons. Per device, so they stay out of the synced save. */
   controls: Bindings
+  /** Touch joystick: follows the thumb (the default) or waits in the bottom-left corner. */
+  joystick: StickMode
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -155,6 +158,7 @@ export const DEFAULT_SETTINGS: Settings = {
   damageNumbers: 'reduced',
   screenShake: true,
   controls: DEFAULT_BINDINGS,
+  joystick: 'floating',
 }
 
 const volume = (v: unknown, fallback: number) => (typeof v === 'number' && Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : fallback)
@@ -179,6 +183,7 @@ export const parseSettings = (raw: string | null, defaults = DEFAULT_SETTINGS): 
     damageNumbers: damageMode(data.damageNumbers, defaults.damageNumbers),
     screenShake: flag(data.screenShake, defaults.screenShake),
     controls: parseBindings(data.controls),
+    joystick: STICK_MODES.find((m) => m === data.joystick) ?? defaults.joystick,
   }
 }
 

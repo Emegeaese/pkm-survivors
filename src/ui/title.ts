@@ -1,89 +1,225 @@
+import { accountState, accountsEnabled, accountUserId } from '../account'
 import { playSfx } from '../engine/audio'
-import type { Input } from '../engine/input'
-import { context2d } from '../engine/pixelart'
-import { locale, t, type Locale } from '../i18n'
+import { ACTIONS } from '../engine/bindings'
+import { joystick, type Input, type Stick } from '../engine/input'
+import { formatTime, type Vec } from '../engine/math'
+import { blitCentered, context2d, ellipse } from '../engine/pixelart'
 import { ENEMIES } from '../data/enemies'
-import { sparkleIcon } from '../render/art'
+import { isHatchling, PLAYABLE, type PlayableId } from '../data/hatchlings'
+import { isReady } from '../game/eggs'
+import { missionStatus } from '../game/missions'
+import { formatNumber, locale, t } from '../i18n'
+import { coinIcon, eggIcon, giftIcon, medalIcon, pokeballIcon, ribbonIcon, sparkleIcon } from '../render/art'
 import { logoScale, titleLogo } from '../render/logo'
-import { drawPokemon, loadedSprites, loadSpecies } from '../render/sprites'
-import { accountState, accountsEnabled } from '../account'
-import { eggIcon } from '../render/art'
+import { drawPokemon, loadedSprites, loadSpecies, type Dex } from '../render/sprites'
 import { inviterName } from '../ranking'
-import { accountChip } from './account'
-import { h, later, rich } from './dom'
-import { languageSwitch } from './language'
-import { titleBadge } from './missions'
+import { ROUTES } from '../site/routes'
+import { watchInvites } from '../firebaseInvites'
 import { watchOnline } from '../firebasePresence'
-import { socialText } from '../i18n/social'
-import { loadSave, outbreakToday } from './save'
-import { menu, type Screen } from './screens'
 import { featureText } from '../i18n/features'
+import { socialText } from '../i18n/social'
+import { h, later, rich } from './dom'
+import { boundKey } from './inputLabels'
+import { challengeToday, loadAttempt, loadSave, outbreakToday, today } from './save'
+import type { Screen } from './screens'
+import { gearButton, helpButton, shellBody, topBar, walletChip } from './shell'
+import { nearestInDirection, type Direction } from './spatial'
+import { toast } from './toasts'
+import { trainerChip } from './trainer'
 
-/** Static site pages, one URL per language (they live outside the game bundle). */
-const SITE_PAGES = {
-  pt: { guide: '/guia/', legal: '/legal/' },
-  en: { guide: '/en/guide/', legal: '/en/legal/' },
-  es: { guide: '/es/guia/', legal: '/es/legal/' },
-} as const satisfies Record<Locale, Record<string, string>>
+/** What the lobby can highlight. A screen opened over it gets the one it came from, to come back to it. */
+export type LobbyFocus =
+  | 'trainer'
+  | 'help'
+  | 'settings'
+  | 'outbreak'
+  | 'challenge'
+  | 'missions'
+  | 'friends'
+  | 'invite'
+  | 'pokedex'
+  | 'eggs'
+  | 'mart'
+  | 'ranking'
+  | 'gacha'
+  | 'play'
 
-const GITHUB_URL = 'https://github.com/Emegeaese/pkm-survivors'
+/**
+ * The meadow behind the lobby (`render/titleScene.ts`), where the partner
+ * takes its walks. Points are CSS px; the shell maps them into the world.
+ */
+export type Meadow = {
+  /** Puts the partner on its stage (`null` when the lobby goes away). */
+  meet: (partner: { dex: Dex; shiny: boolean } | null) => void
+  /** This frame's keys or stick, a tapped spot, and where the stage holds the partner's feet. */
+  steer: (move: Vec, tap: Vec | null, home: Vec) => void
+  /** Whether the partner is out in the meadow (else the stage draws it). */
+  out: () => boolean
+  /** The drag joystick to draw over the meadow, or null. */
+  stick: (stick: Stick | null) => void
+}
 
 export type TitleActions = {
-  friends: () => void
-  gacha: () => void
+  /** JOGAR, and a tap on the partner: the Pokémon select, the saved partner picked. */
   play: () => void
   /** Opens the Desafio do dia. */
   challenge: () => void
   missions: () => void
   /** Opens the egg incubator. */
   incubator: () => void
-  /** Must rebuild the title in the picked language (without the intro). */
-  language: (next: Locale) => void
-  /** The menu is up: after the "press start" gesture, so the browser lets audio play. */
+  /** The lobby is up: after the "press start" gesture, so the browser lets audio play. */
   ready: () => void
   /**
-   * Opens Settings over the title. Closing them must rebuild the title (the
-   * language may have changed), highlighting `focus`. No action, no button.
+   * Opens Settings over the title (the gear). Closing them must rebuild the
+   * title (the language may have changed), highlighting `focus`.
    */
-  settings?: (focus: number) => Screen
+  settings: (focus: LobbyFocus) => Screen
   /** Opens the in-game Pokédex over the title; closing it rebuilds the title on `focus`, like `settings`. */
-  pokedex: (focus: number) => Screen
-  /** Opens the account dialog over the title, like `settings`. No action (accounts off), no button. */
-  account?: (focus: number) => Screen
-  /** Opens the boards over the title, like `settings`. No action (no API), no entry. */
-  ranking?: (focus: number) => Screen
+  pokedex: (focus: LobbyFocus) => Screen
+  /** Opens the Poké Mart over the title, like `settings`. */
+  mart: (focus: LobbyFocus) => Screen
+  /** Opens the Trainer Card over the title (the Trainer chip, `C`, the invite banner), like `settings`. */
+  trainer: (focus: LobbyFocus) => Screen
+  /** Opens the boards over the title, like `settings`. */
+  ranking: (focus: LobbyFocus) => Screen
+  /** Opens the ticket gacha over the title, like `settings`. */
+  gacha: (focus: LobbyFocus) => Screen
+  /** Opens "play with friends" (rooms, invitations). It replaces the title, so it takes the focus to come back to. */
+  friends: (focus: LobbyFocus) => void
+  meadow: Meadow
 }
 
 /**
- * "Surto de hoje": the day's outbreak species, walking in its normal and
- * shiny colors side by side, with what it means. `tick` animates the sprites.
+ * The lobby's three layouts, in sync with the media queries of the lobby's
+ * section in `style.css`: phones in landscape (two columns), narrow screens
+ * (a column with a tab bar) and the rest (rails either side of the partner).
  */
-const outbreakBanner = () => {
-  const m = t().outbreak
-  const def = ENEMIES[outbreakToday()]
-  const canvas = h('canvas', { class: 'outbreak-sprites', width: 76, height: 40, 'aria-hidden': 'true' })
-  void Promise.allSettled([loadSpecies(def.dex), loadSpecies(def.dex, true)])
-  const el = h(
-    'div',
-    { class: 'outbreak-banner box' },
-    canvas,
-    h(
-      'div',
-      { class: 'outbreak-text' },
-      h('small', {}, m.title),
-      h('b', {}, def.name, h('img', { src: sparkleIcon(), alt: '' })),
-      h('span', {}, m.blurb),
-    ),
+const LANDSCAPE = '(max-height: 500px) and (orientation: landscape)'
+const NARROW = '(max-width: 759px) and (min-height: 501px), (max-width: 759px) and (orientation: portrait)'
+const layout = () => (matchMedia(LANDSCAPE).matches ? 'landscape' : matchMedia(NARROW).matches ? 'narrow' : 'wide')
+
+/** Sizes a pixel-art canvas to `k` device px per art px, so its pixels stay square. Touches the style only when it changes. */
+const pixelSize = (canvas: HTMLCanvasElement, k: number) => {
+  const dpr = window.devicePixelRatio || 1
+  const width = `${(canvas.width * k) / dpr}px`
+  if (canvas.style.width === width) return
+  canvas.style.width = width
+  canvas.style.height = `${(canvas.height * k) / dpr}px`
+}
+
+/** Fits the logo to the viewport in whole device pixels per logo pixel: big for the intro, smaller in the lobby. */
+const fitLogo = (canvas: HTMLCanvasElement, intro: boolean) => {
+  const vw = window.innerWidth
+  const vh = window.innerHeight
+  const mode = layout()
+  // The top bar takes about 60 px off the height.
+  const [maxW, maxH] = intro
+    ? [Math.min(vw * 0.9, 640), (vh - 60) * 0.4]
+    : mode === 'landscape'
+      ? [vw * 0.42, (vh - 60) * 0.24]
+      : mode === 'narrow'
+        ? [Math.min(vw * 0.8, 420), (vh - 60) * 0.11]
+        : [Math.min(vw - 620, 460), (vh - 60) * 0.17]
+  pixelSize(canvas, logoScale(canvas.width, canvas.height, Math.max(maxW, 120), maxH, window.devicePixelRatio || 1))
+}
+
+/** Whether the save plays `id` shiny (a shiny starter picked so, or a shiny hatch). */
+const playsShiny = (id: PlayableId) => {
+  const save = loadSave()
+  return save.shinyStarters[id] === true || (isHatchling(id) && save.hatched[id]?.shiny === true)
+}
+
+/* ---------------- Hoje: the day's cards ---------------- */
+
+/** A Hoje card: a colored label (with an optional badge and key hint) over one line of live state. */
+const todayCard = (key: LobbyFocus, label: string, badge: Node | null, hotkey: string | null, ...row: Node[]) =>
+  h(
+    'button',
+    { class: `lobby-card box ${key}`, type: 'button' },
+    h('small', { class: 'lobby-card-label' }, h('span', {}, label), badge, hotkey && h('span', { class: 'key-hint' }, hotkey)),
+    h('span', { class: 'lobby-card-row' }, ...row),
   )
+
+/** A red count, or a green ✓ when nothing's left. */
+const badge = (n: number) => (n > 0 ? h('em', { class: 'lobby-badge' }, formatNumber(n)) : h('em', { class: 'lobby-badge done' }, '✓'))
+
+/** Surto do dia: the day's species walking, normal and shiny. `tick` animates them. */
+const outbreakCard = () => {
+  const def = ENEMIES[outbreakToday()]
+  const sprite = (shiny: boolean) => h('canvas', { class: shiny ? 'lobby-walker shiny' : 'lobby-walker', width: 30, height: 32, 'aria-hidden': 'true' })
+  const walkers = [sprite(false), sprite(true)] as const
+  void Promise.allSettled([loadSpecies(def.dex), loadSpecies(def.dex, true)])
+  const el = todayCard('outbreak', t().home.outbreak, null, null, ...walkers, h('b', {}, def.name), h('img', { class: 'lobby-sparkle', src: sparkleIcon(), alt: '' }))
   const tick = (time: number) => {
-    const ctx = context2d(canvas)
-    ctx.clearRect(0, 0, canvas.width, canvas.height)
-    const normal = loadedSprites(def.dex)
-    const shiny = loadedSprites(def.dex, true)
-    if (normal) drawPokemon(ctx, normal, 'Walk', 0, time, 19, canvas.height - 4)
-    if (shiny) drawPokemon(ctx, shiny, 'Walk', 0, time + 0.3, 57, canvas.height - 4)
+    const k = Math.max(1, Math.round((window.devicePixelRatio || 1) * (layout() === 'wide' ? 1.5 : 1)))
+    walkers.forEach((canvas, i) => {
+      pixelSize(canvas, k)
+      const ctx = context2d(canvas)
+      ctx.clearRect(0, 0, canvas.width, canvas.height)
+      const s = loadedSprites(def.dex, i === 1)
+      if (s) drawPokemon(ctx, s, 'Walk', 0, time + i * 0.3, canvas.width / 2, canvas.height - 2)
+    })
   }
   return { el, tick }
+}
+
+/** Desafio do dia: today's attempt time once made (with the ribbon it plays for), else the day's Pokémon and a "!". */
+const challengeCard = () => {
+  const m = t().home
+  const c = challengeToday()
+  const attempt = loadAttempt()
+  const done = attempt?.day === c.day ? attempt : null
+  const el = todayCard(
+    'challenge',
+    m.challenge,
+    done ? null : h('em', { class: 'lobby-badge' }, '!'),
+    null,
+    h('img', { class: 'lobby-icon', src: ribbonIcon('gold'), alt: '' }),
+    h('b', {}, done ? m.challengeDone(formatTime(done.time)) : PLAYABLE[c.starter].line[0].name),
+  )
+  el.setAttribute('aria-label', `${m.challenge}: ${done ? m.challengeDone(formatTime(done.time)) : m.challengeOpen}`)
+  return el
+}
+
+/** Missões: today's missions done out of all, with a badge of those left. */
+const missionsCard = () => {
+  const m = t().home
+  const daily = missionStatus(loadSave().missions, today()).filter((s) => s.period === 'daily')
+  const done = daily.filter((s) => s.done).length
+  const left = daily.length - done
+  const el = todayCard(
+    'missions',
+    m.missions,
+    badge(left),
+    'M',
+    h('span', { class: 'lobby-progress' }, h('span', { style: `width:${daily.length ? Math.round((done / daily.length) * 100) : 0}%` })),
+    h('b', {}, `${done}/${daily.length}`),
+  )
+  el.setAttribute('aria-label', `${m.missions}: ${m.missionsLeft(left)}`)
+  return el
+}
+
+/* ---------------- Amigos ---------------- */
+
+/**
+ * The friends card: how many trainers are online, and the invitations waiting
+ * for you. Opens "play with friends". `dispose` stops the live counts.
+ */
+const friendsCard = (open: () => void) => {
+  const so = socialText()
+  const online = h('span', {}, '\u00a0')
+  const invites = h('em', { class: 'lobby-badge hidden' })
+  const el = h(
+    'button',
+    { class: 'lobby-hall lobby-friends', type: 'button', 'aria-label': so.friends, title: so.friends, onclick: open },
+    h('span', { class: 'hall-rays', 'aria-hidden': 'true' }),
+    h('span', { class: 'hall-top' }, h('img', { src: giftIcon(), alt: '' }), h('b', {}, so.friends), invites),
+    h('span', { class: 'hall-ticker' }, h('i', { class: 'online-dot', 'aria-hidden': 'true' }), online),
+    h('span', { class: 'key-hint' }, 'F'),
+  )
+  const stops = [watchOnline((n) => { online.textContent = n > 0 ? so.online(n) : featureText().friends })]
+  if (accountUserId()) void watchInvites((list) => { invites.textContent = String(list.length); invites.classList.toggle('hidden', list.length === 0) }, () => {}).then((off) => stops.push(off)).catch(() => {})
+  return { el, dispose: () => stops.forEach((stop) => stop()) }
 }
 
 /**
@@ -91,132 +227,358 @@ const outbreakBanner = () => {
  * what signing up brings (a Friendship Egg each). It shows once the
  * inviter's name comes back, and never offline; tapping it opens the account.
  */
-const inviteBanner = (head: HTMLElement, open: (() => void) | null) => {
+const inviteBanner = (slot: HTMLElement, open: () => void, ready: (el: HTMLElement) => void) => {
   if (!accountsEnabled || accountState().kind === 'signedIn') return
   void inviterName().then((name) => {
-    if (!name || !head.isConnected || accountState().kind === 'signedIn') return
+    if (!name || !slot.isConnected || accountState().kind === 'signedIn') return
     const m = t().invite
     const el = h(
       'button',
-      { class: 'invite-banner box pop', type: 'button' },
+      { class: 'invite-banner box pop', type: 'button', onclick: open },
       h('img', { src: eggIcon('friend'), alt: '' }),
       h('span', { class: 'invite-text' }, rich(m.banner(name), { class: 'invite-head' }), h('span', { class: 'invite-blurb' }, m.blurb)),
     )
-    if (open) el.addEventListener('click', (e) => (e.stopPropagation(), open()))
-    head.append(el)
+    slot.append(el)
+    ready(el)
   })
 }
 
-/** Fits the logo to the viewport in whole device pixels per logo pixel. */
-const fitLogo = (canvas: HTMLCanvasElement) => {
-  const vw = window.innerWidth
-  const vh = window.innerHeight
-  const dpr = window.devicePixelRatio || 1
-  // Phones in landscape put the logo beside the menu (see CSS), so it gets half the width instead.
-  const phoneLandscape = vh <= 500 && vw > vh
-  const [maxW, maxH] = phoneLandscape ? [vw * 0.44, vh * 0.34] : [Math.min(vw * 0.9, 640), vh * 0.3]
-  const k = logoScale(canvas.width, canvas.height, maxW, maxH, dpr)
-  const width = `${(canvas.width * k) / dpr}px`
-  if (canvas.style.width !== width) {
-    canvas.style.width = width
-    canvas.style.height = `${(canvas.height * k) / dpr}px`
+/* ---------------- The partner on stage ---------------- */
+
+/** Art px of the stage canvas, and where the partner's feet stand in it. */
+const STAGE = { w: 80, h: 64, feet: 58 } as const
+
+/** Set once the partner first took a walk on this device: the stroll hint stops showing. */
+const STROLLED = 'ps:strolled'
+const hasStrolled = () => {
+  try {
+    return localStorage.getItem(STROLLED) !== null
+  } catch {
+    return true
   }
 }
 
-/**
- * Title screen over the live meadow: pixel logo, the day's outbreak, a blinking "press start",
- * then the main menu (Play, Daily Challenge, Incubator, Missions, Pokédex, Ranking, How to play, Settings) with the language
- * switch, the account chip (when accounts are on) and footer links. `intro: false` opens straight on the menu (coming
- * back from another screen, or after a language switch).
- */
-export const titleScreen = (root: HTMLElement, input: Input, actions: TitleActions, opts: { intro?: boolean; focus?: number }): Screen => {
+/** "WASD passear" (the bound keys) over the partner's head, or "tap the grass" on touch, until its first walk. */
+const strollHint = () => {
   const m = t().home
-  const pages = SITE_PAGES[locale()]
-  const { settings, account, ranking } = actions
-  const items = [
-    { label: m.play, run: actions.play },
-    { label: featureText().friends, run: actions.friends },
-    { label: featureText().gacha, run: actions.gacha },
-    { label: m.challenge, run: actions.challenge },
-    { label: m.incubator, run: actions.incubator },
-    { label: m.missions, run: actions.missions },
-    { label: m.pokedex, run: () => openOver(actions.pokedex) },
-    ...(ranking ? [{ label: m.ranking, run: () => openOver(ranking) }] : []),
-    { label: m.guide, run: () => location.assign(pages.guide) },
-    ...(settings ? [{ label: m.settings, run: () => openOver(settings) }] : []),
-  ]
+  const keys = (['up', 'left', 'down', 'right'] as const).map((a) => h('span', { class: 'key-hint' }, boundKey(a)))
+  return h('span', { class: 'lobby-stroll-hint', 'aria-hidden': 'true' }, h('span', { class: 'keys-only' }, ...keys, h('b', {}, m.stroll)), h('span', { class: 'touch-only' }, m.strollTouch))
+}
+
+/**
+ * The saved partner (`save.partner`, its first stage, shiny if played so)
+ * standing on the meadow, as big as the stage allows in whole pixels, over a
+ * name plate. A tap on it (its body, `hit`, or the plate) does what JOGAR
+ * does; the stage's empty corners are grass to walk on. Once it hops off to
+ * take a walk (`setOut`), the meadow draws it instead and its spot waits
+ * empty; `feet` is where it stands, in CSS px.
+ */
+const partnerStage = (onPlay: () => void) => {
+  const save = loadSave()
+  const form = PLAYABLE[save.partner].line[0]
+  const shiny = playsShiny(save.partner)
+  void loadSpecies(form.dex, shiny).catch(() => {})
+  const canvas = h('canvas', { class: 'lobby-partner-sprite', width: STAGE.w, height: STAGE.h, 'aria-hidden': 'true' })
+  const plate = h('span', { class: 'lobby-plate' }, h('b', {}, form.name), h('small', {}, `${t().home.change} ▸`))
+  const hit = h('span', { class: 'lobby-partner-hit' })
+  let out = false
+  const hint = hasStrolled() ? null : strollHint()
+  const partner = h('button', { class: 'lobby-partner', type: 'button', 'aria-label': `${form.name} · ${t().home.change}`, onclick: onPlay }, hint, canvas, hit, plate)
+  const el = h('div', { class: 'lobby-stage' }, partner)
+  const shadow = ellipse(13, 3, 'rgba(16, 24, 16, 0.3)')
+  const tick = (time: number) => {
+    const dpr = window.devicePixelRatio || 1
+    const room = el.clientHeight - plate.offsetHeight - 8
+    const k = Math.min(Math.round(4 * dpr), logoScale(STAGE.w, STAGE.h, el.clientWidth, Math.max(room, 1), dpr))
+    pixelSize(canvas, k)
+    const ctx = context2d(canvas)
+    ctx.clearRect(0, 0, STAGE.w, STAGE.h)
+    blitCentered(ctx, shadow, STAGE.w / 2, STAGE.feet)
+    const s = loadedSprites(form.dex, shiny)
+    if (!s) return
+    drawPokemon(ctx, s, 'Idle', 0, time, STAGE.w / 2, STAGE.feet)
+    // The tappable body: the sprite's, a few art px wider, over the canvas.
+    const css = k / dpr
+    const w = (s.bodyW + 8) * css
+    const top = canvas.offsetTop + (STAGE.feet - s.bodyH - 4) * css
+    hit.style.cssText = `left:${canvas.offsetLeft + (canvas.offsetWidth - w) / 2}px;top:${top}px;width:${w}px;height:${(s.bodyH + 6) * css}px`
+  }
+  const setOut = (next: boolean) => {
+    if (next === out) return
+    out = next
+    partner.classList.toggle('out', out)
+    // Back from its walk, it hops onto the stage.
+    partner.classList.toggle('landed', !out)
+    if (out && hint) {
+      hint.remove()
+      try {
+        localStorage.setItem(STROLLED, '1')
+      } catch {
+        // Private modes may refuse: the hint just shows again next time.
+      }
+    }
+  }
+  const feet = (): Vec => {
+    const r = canvas.getBoundingClientRect()
+    return { x: r.left + r.width / 2, y: r.top + (r.height * STAGE.feet) / STAGE.h }
+  }
+  return { el, tick, setOut, feet, partner: { dex: form.dex, shiny } }
+}
+
+/* ---------------- Collection dock ---------------- */
+
+/** A dock tile: icon, label, an optional badge and its key hint. */
+const dockTile = (key: LobbyFocus, icon: string, label: string, hotkey: string, count = 0, aria = label) =>
+  h(
+    'button',
+    { class: `lobby-tile box ${key}`, type: 'button', 'aria-label': aria },
+    h('img', { src: icon, alt: '' }),
+    h('span', {}, label),
+    count > 0 && h('em', { class: 'lobby-badge' }, formatNumber(count)),
+    h('span', { class: 'key-hint' }, hotkey),
+  )
+
+/* ---------------- Keyboard and gamepad ---------------- */
+
+/** The arrows (and the pad) move between the lobby's buttons; the movement keys (WASD) walk the partner instead. */
+const DIRECTIONS: Readonly<Record<string, Direction>> = { ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right' }
+
+/** A press that travels less than this (CSS px) is a tap: the partner walks there. Past it, it's a joystick. */
+const TAP_SLOP = 12
+
+/** Whether a press on `target` lands on the meadow rather than on a button, a card or a link. */
+const onMeadow = (target: EventTarget | null) => target instanceof Element && !target.closest('button, a, input, select, .box')
+
+/** The movement keys held (WASD, or as rebound), normalized. */
+const heldMove = (input: Input): Vec => {
+  const held = (a: 'up' | 'down' | 'left' | 'right') => (input.isHeld(ACTIONS[a].key) ? 1 : 0)
+  const x = held('right') - held('left')
+  const y = held('down') - held('up')
+  const len = Math.hypot(x, y)
+  return len > 0 ? { x: x / len, y: y / len } : { x: 0, y: 0 }
+}
+
+/** Shortcuts, shown as key hints on what they press (`C` belongs to the Trainer chip; P, E and Space are taken by the run's controls). */
+const HOTKEYS: Readonly<Record<string, LobbyFocus>> = { KeyX: 'pokedex', KeyO: 'eggs', KeyL: 'mart', KeyR: 'ranking', KeyG: 'gacha', KeyM: 'missions', KeyF: 'friends' }
+
+/**
+ * Title screen over the live meadow: the pixel logo and a blinking "press
+ * start", then the lobby. The top bar holds the Trainer chip, the wallet, `?`
+ * (how to play) and the gear. Hoje has the day's cards (Surto, Desafio,
+ * Missões), the Hall da Fama card sits beside them, the saved partner stands
+ * in the middle, and JOGAR goes with the collection dock (Pokédex, Ovos,
+ * Loja, Ranking, Ideias). Arrows move between all of them by where they are on
+ * screen; Enter presses the highlighted one, JOGAR at first. The movement
+ * keys, a tap on the grass or a drag (a joystick) send the partner off its
+ * stage for a walk in the meadow (`Meadow`), where it greets the wild Pokémon.
+ * `intro: false` opens straight on the lobby (coming back from another
+ * screen, or after a language switch), highlighting `focus`.
+ */
+export const titleScreen = (root: HTMLElement, input: Input, actions: TitleActions, opts: { intro?: boolean; focus?: LobbyFocus }): Screen => {
+  const m = t().home
+  const lang = locale()
 
   const logo = h('canvas', { class: 'title-logo', width: 1, height: 1, 'aria-hidden': 'true' })
   void titleLogo().then((sprite) => {
     logo.width = sprite.width
     logo.height = sprite.height
     context2d(logo).drawImage(sprite, 0, 0)
-    fitLogo(logo)
+    fitLogo(logo, lobby === null)
     logo.classList.add('shown')
   })
 
   const prompt = h('p', { class: 'press-start blink' }, h('span', { class: 'keys-only' }, m.pressKeys), h('span', { class: 'touch-only' }, m.pressTouch))
-  const menuBox = h('nav', { class: 'title-menu box pop', 'aria-label': 'Menu' })
-  const footer = h(
-    'footer',
-    { class: 'title-footer' },
-    m.fanGame,
-    ' · ',
-    h('a', { href: pages.legal }, m.legal),
-    ' · ',
-    h('a', { href: GITHUB_URL, target: '_blank', rel: 'noopener' }, 'GitHub'),
-  )
-  const badge = titleBadge(loadSave().title)
-  const outbreak = outbreakBanner()
-  const online = h('p', { class: 'online-count', role: 'status', style: 'visibility:hidden' }, ' ')
-  const stopOnline = watchOnline((n) => { if (n > 0) online.textContent = socialText().online(n); online.style.visibility = n > 0 ? 'visible' : 'hidden' })
-  const head = h('div', { class: 'title-head' }, logo, badge, outbreak.el, online)
-  inviteBanner(head, account ? () => openOver(account) : null)
-  const el = h('div', { class: 'screen title-home' }, h('h1', { class: 'sr-only' }, 'Pokémon Survivors'), head, prompt, footer)
+  // The top bar waits for the lobby: the intro is just the logo and "press start".
+  const bar = h('span', { class: 'hidden' })
+  const intro = shellBody(h('h1', { class: 'sr-only' }, 'Pokémon Survivors'), logo, prompt)
+  const el = h('div', { class: 'screen shell title-home' }, bar, intro)
 
-  let nav: ReturnType<typeof menu> | null = null
-  let closeLanguage: (() => void) | null = null
-  let closeAccount: (() => void) | null = null
+  let lobby: HTMLElement | null = null
+  let tickers: ((time: number) => void)[] = []
+  let stage: ReturnType<typeof partnerStage> | null = null
+  /** A press on the meadow: a tap until it travels `TAP_SLOP`, then a joystick. */
+  let drag: { id: number; origin: Vec; stick: Stick | null } | null = null
+  /** A tap on the meadow, for the next frame to send the partner to. */
+  let tap: Vec | null = null
+  let current: LobbyFocus = opts.focus ?? 'play'
+  let offKeys: (() => void) | null = null
+  let closeChip: (() => void) | null = null
   let offIntro: (() => void) | null = null
-  /** Settings or the Pokédex, open over the meadow. */
+  /** Live counts (trainers online, invitations) stop with the lobby. */
+  const stops: (() => void)[] = []
+  /** Settings, the Pokédex, the Trainer Card… open over the meadow. */
   let overScreen: Screen | null = null
 
-  /** (Re)builds the menu buttons and their key/pointer handlers, with `focus` highlighted. */
-  const showMenu = (focus: number) => {
-    const buttons = items.map((item) => h('button', { class: 'title-item' }, item.label))
-    nav = menu(input, buttons, (i) => {
-      playSfx('select')
-      // After this key dispatch, or the next screen would receive the same Enter.
-      later(items[i]!.run)
-    }, { initial: focus })
-    closeLanguage = languageSwitch(root, input, actions.language)
-    closeAccount = account ? accountChip(root, input, () => openOver(account)) : null
-    menuBox.replaceChildren(...buttons)
+  /** Everything the arrows reach, wherever the layout puts it. */
+  let navs: { el: HTMLElement; key: LobbyFocus }[] = []
+  const itemOf = (key: LobbyFocus) => navs.find((n) => n.key === key)?.el
+
+  const select = (key: LobbyFocus, sound = true) => {
+    if (key !== current && sound) playSfx('move')
+    current = key
+    for (const n of navs) n.el.classList.toggle('selected', n.key === key)
   }
 
-  /** Settings and the Pokédex replace the title (only the meadow stays): its keys and language switch stay off until they close and the title is rebuilt. */
-  const openOver = (open: (focus: number) => Screen) => {
-    const at = nav?.index ?? 0
-    nav?.off()
-    closeLanguage?.()
-    closeAccount?.()
-    nav = closeLanguage = closeAccount = null
+  /** Makes `node` part of the arrows' tour as `key`; a mouse over it highlights it too. */
+  const navigable = <T extends HTMLElement>(node: T, key: LobbyFocus) => {
+    navs.push({ el: node, key })
+    node.addEventListener('pointerenter', (e) => e.pointerType === 'mouse' && select(key, false))
+    return node
+  }
+
+  const move = (dir: Direction) => {
+    const next = navs[nearestInDirection(navs.map((n) => n.el.getBoundingClientRect()), navs.findIndex((n) => n.key === current), dir)]
+    if (next) select(next.key)
+  }
+
+  /** Another screen replaces the title (only the meadow stays): its keys stay off until that one closes and the title is rebuilt. */
+  const openOver = (open: (focus: LobbyFocus) => Screen) => {
+    offKeys?.()
+    closeChip?.()
+    offKeys = closeChip = null
     el.classList.add('hidden')
-    overScreen = open(at)
+    leaveMeadow()
+    overScreen = open(current)
   }
 
-  const enterMenu = () => {
-    prompt.replaceWith(menuBox)
-    showMenu(Math.min(opts.focus ?? 0, items.length - 1))
+  const runs: Record<Exclude<LobbyFocus, 'trainer'>, () => void> = {
+    help: () => location.assign(ROUTES.guide[lang]),
+    settings: () => openOver(actions.settings),
+    outbreak: () => toast(root, rich(`*${ENEMIES[outbreakToday()].name}*: ${t().outbreak.blurb}`), 3600, 'outbreak'),
+    challenge: actions.challenge,
+    missions: actions.missions,
+    invite: () => openOver(actions.trainer),
+    pokedex: () => openOver(actions.pokedex),
+    eggs: actions.incubator,
+    mart: () => openOver(actions.mart),
+    ranking: () => openOver(actions.ranking),
+    gacha: () => openOver(actions.gacha),
+    friends: () => (leaveMeadow(), actions.friends(current)),
+    play: actions.play,
+  }
+  /** A press on `key`: the select sound, then its action after this dispatch (or the next screen would get the same press). */
+  const press = (key: keyof typeof runs) => () => (select(key, false), playSfx('select'), later(runs[key]))
+  const pressable = <T extends HTMLElement>(node: T, key: keyof typeof runs) => (node.addEventListener('click', press(key)), navigable(node, key))
+
+  const buildLobby = () => {
+    const save = loadSave()
+    navs = []
+    const chip = trainerChip(input, { onOpen: () => openOver(actions.trainer) })
+    closeChip = chip.dispose
+    navigable(chip.el, 'trainer')
+    bar.replaceWith(
+      topBar({
+        left: chip.el,
+        right: [walletChip(save.wallet), navigable(helpButton(press('help')), 'help'), navigable(gearButton(press('settings')), 'settings')],
+      }),
+    )
+
+    const outbreak = outbreakCard()
+    stage = partnerStage(press('play'))
+    actions.meadow.meet(stage.partner)
+    tickers = [outbreak.tick, stage.tick]
+    const friends = friendsCard(press('friends'))
+    stops.push(friends.dispose)
+    const side = h('div', { class: 'lobby-side' }, navigable(friends.el, 'friends'))
+    inviteBanner(side, press('invite'), (banner) => navigable(banner, 'invite'))
+
+    const ready = save.eggs.filter(isReady).length
+    const tiles = [
+      pressable(dockTile('pokedex', pokeballIcon(), m.pokedex, 'X'), 'pokedex'),
+      pressable(dockTile('eggs', eggIcon('rare'), m.eggs, 'O', ready, ready > 0 ? `${m.eggs}: ${m.eggsReady(ready)}` : m.eggs), 'eggs'),
+      pressable(dockTile('mart', coinIcon(2), m.mart, 'L'), 'mart'),
+      pressable(dockTile('gacha', giftIcon(), socialText().gachaTile, 'G'), 'gacha'),
+      pressable(dockTile('ranking', medalIcon('gold'), m.ranking, 'R'), 'ranking'),
+    ]
+    const play = pressable(h('button', { class: 'lobby-play', type: 'button' }, h('span', {}, m.play), h('span', { class: 'key-hint' }, 'ENTER')), 'play')
+    // JOGAR sits in the middle of the dock on wide screens, between the two halves (centered however many tiles each has); the CSS moves it above the tab bar on phones.
+    const half = Math.ceil(tiles.length / 2)
+    const bottom = h(
+      'div',
+      { class: 'lobby-bottom', style: `--tiles:${tiles.length}` },
+      h('div', { class: 'lobby-dock left' }, ...tiles.slice(0, half)),
+      play,
+      h('div', { class: 'lobby-dock right' }, ...tiles.slice(half)),
+    )
+
+    const todayEl = h(
+      'section',
+      { class: 'lobby-today', 'aria-label': m.today },
+      h('h2', { class: 'lobby-rail-label' }, m.today),
+      pressable(outbreak.el, 'outbreak'),
+      pressable(challengeCard(), 'challenge'),
+      pressable(missionsCard(), 'missions'),
+    )
+    lobby = h('div', { class: 'lobby' }, h('h1', { class: 'sr-only' }, 'Pokémon Survivors'), h('div', { class: 'lobby-logo' }, logo), todayEl, side, stage.el, bottom)
+    intro.replaceWith(lobby)
+    if (logo.width > 1) fitLogo(logo, false)
+
+    select(itemOf(current) ? current : 'play', false)
+    offKeys = input.onKey((key) => {
+      const dir = DIRECTIONS[key]
+      if (dir) return move(dir)
+      if (key === 'Enter' || key === 'Space') return void itemOf(current)?.click()
+      const hot = HOTKEYS[key]
+      const target = hot && itemOf(hot)
+      if (hot && target) target.click()
+    })
+  }
+
+  /** The lobby goes away (another screen over it, or for good): so does the partner, and any press on the meadow. */
+  const leaveMeadow = () => {
+    actions.meadow.meet(null)
+    actions.meadow.stick(null)
+    stage = null
+    drag = null
+    tap = null
+  }
+
+  const onDown = (e: PointerEvent) => {
+    if (!stage || drag || (e.pointerType === 'mouse' && e.button !== 0)) return
+    if (!onMeadow(e.target)) return
+    drag = { id: e.pointerId, origin: { x: e.clientX, y: e.clientY }, stick: null }
+  }
+  const onMove = (e: PointerEvent) => {
+    if (!drag || e.pointerId !== drag.id) return
+    const at = { x: e.clientX, y: e.clientY }
+    if (drag.stick || Math.hypot(at.x - drag.origin.x, at.y - drag.origin.y) >= TAP_SLOP) drag.stick = joystick(drag.stick?.origin ?? drag.origin, at)
+  }
+  const onUp = (e: PointerEvent) => {
+    if (!drag || e.pointerId !== drag.id) return
+    if (!drag.stick && e.type === 'pointerup') tap = drag.origin
+    drag = null
+  }
+  el.addEventListener('pointerdown', onDown)
+  window.addEventListener('pointermove', onMove)
+  window.addEventListener('pointerup', onUp)
+  window.addEventListener('pointercancel', onUp)
+  const offPointers = () => {
+    window.removeEventListener('pointermove', onMove)
+    window.removeEventListener('pointerup', onUp)
+    window.removeEventListener('pointercancel', onUp)
+  }
+
+  /** Every frame on the lobby: the keys, the stick or a tap steer the partner, and the stage shows it while it's home. */
+  const stroll = () => {
+    if (!stage) return
+    const { meadow } = actions
+    meadow.steer(drag?.stick?.vec ?? heldMove(input), tap, stage.feet())
+    meadow.stick(drag?.stick ?? null)
+    tap = null
+    stage.setOut(meadow.out())
+  }
+
+  const enterLobby = () => {
+    buildLobby()
     actions.ready()
   }
 
   if (opts.intro) {
-    // Any key, pad button or tap. `later` keeps that same press from also picking "Play".
+    // Any key, pad button or tap. `later` keeps that same press from also pressing JOGAR.
     const start = () => {
       if (!offIntro) return
       playSfx('select')
-      later(enterMenu)
+      later(enterLobby)
       offIntro()
       offIntro = null
     }
@@ -225,26 +587,20 @@ export const titleScreen = (root: HTMLElement, input: Input, actions: TitleActio
     el.addEventListener('click', onTap)
     offIntro = () => (offKey(), el.removeEventListener('click', onTap))
   } else {
-    enterMenu()
+    enterLobby()
   }
 
   root.append(el)
   return {
     el,
     dim: 0.12,
-    tick: (time: number) => (overScreen?.tick?.(time), outbreak.tick(time), logo.width > 1 && fitLogo(logo)),
-    dispose: () => (stopOnline(), overScreen?.dispose(), offIntro?.(), nav?.off(), closeLanguage?.(), closeAccount?.(), el.remove()),
+    tick: (time: number) => {
+      overScreen?.tick?.(time)
+      if (el.classList.contains('hidden')) return
+      stroll()
+      for (const tick of tickers) tick(time)
+      if (logo.width > 1) fitLogo(logo, lobby === null)
+    },
+    dispose: () => (stops.forEach((stop) => stop()), overScreen?.dispose(), offIntro?.(), offKeys?.(), closeChip?.(), offPointers(), leaveMeadow(), el.remove()),
   }
-}
-
-/**
- * "◀ Title" entry in the starter select's top-left corner (twin of the Poké
- * Mart entry). Esc and Backspace (pad B) do the same. Returns a disposer.
- */
-export const titleButton = (root: HTMLElement, input: Input, onBack: () => void) => {
-  const back = () => (playSfx('move'), later(onBack))
-  const el = h('button', { class: 'back-entry box', onclick: back }, h('span', { class: 'back-arrow' }, '◀'), t().home.back, h('span', { class: 'key-hint' }, 'ESC'))
-  const off = input.onKey((key) => (key === 'Escape' || key === 'Backspace') && back())
-  root.append(el)
-  return () => (off(), el.remove())
 }

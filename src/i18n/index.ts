@@ -19,7 +19,7 @@ const KEY = 'ps:lang'
 
 const isLocale = (v: unknown): v is Locale => typeof v === 'string' && v in LOCALES
 
-/** Saved choice first, then the first browser language we support (`pt-PT` → pt), else English. */
+/** Saved choice first, then the first browser language we support (`pt-PT` → pt, `es-MX` → es), else English. */
 export const detectLocale = (saved: string | null, languages: readonly string[]): Locale =>
   isLocale(saved) ? saved : (languages.map((l) => l.slice(0, 2).toLowerCase()).find(isLocale) ?? 'en')
 
@@ -31,7 +31,7 @@ const readSaved = () => {
   }
 }
 
-/** A localized page (`/en/` sets `data-locale`) beats the browser language: search visitors play in the language they searched in. */
+/** A localized page (`/en/` and `/es/` set `data-locale`) beats the browser language: search visitors play in the language they searched in. */
 const preferredLanguages = (): readonly string[] => {
   const page = globalThis.document?.documentElement.dataset.locale
   return page ? [page] : (globalThis.navigator?.languages ?? [])
@@ -58,7 +58,7 @@ export const setLocale = (next: Locale) => {
 /** The language after `l`, wrapping around: the menus cycle through them. */
 export const nextLocale = (l: Locale) => LOCALE_IDS[(LOCALE_IDS.indexOf(l) + 1) % LOCALE_IDS.length]!
 
-/** Whole number with the current language's thousands separator (`1.250` / `1,250`). */
+/** Whole number with the current language's thousands separator (`1.250`, `1,250`). */
 export const formatNumber = (n: number) => Math.round(n).toLocaleString(LOCALES[current].tag)
 
 /** A `YYYY-MM-DD` day as day and month in the current language (`15/10`, `10/15`). */

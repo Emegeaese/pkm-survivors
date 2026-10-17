@@ -118,7 +118,7 @@ export type ShopTitleId = keyof typeof SHOP_TITLES
 export const SHOP_TITLE_IDS = Object.keys(SHOP_TITLES) as ShopTitleId[]
 
 /** Titles that come as a Mystery Gift (`game/gifts.ts`) or from the Poké Mart, kept in the save's `titles`. */
-export const GIFT_TITLES = ['ambassador', ...SHOP_TITLE_IDS] as const
+export const GIFT_TITLES = ['ambassador', 'supporter', ...SHOP_TITLE_IDS] as const
 
 export type GiftTitleId = (typeof GIFT_TITLES)[number]
 

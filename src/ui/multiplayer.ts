@@ -1,12 +1,12 @@
 import type { Input } from '../engine/input'
 import { PLAYABLE, PLAYABLE_IDS, playableDex, type PlayableId } from '../data/hatchlings'
-import { DIFFICULTY_IDS } from '../game/difficulty'
+import { DIFFICULTY_IDS, type Difficulty } from '../game/difficulty'
 import { invitesScreen } from './invites'
 import { sendInvite, watchInvites } from '../firebaseInvites'
 import { listFriends, type FriendProfile } from '../firebaseSocial'
 import { pokemonPicker } from './pokemonPicker'
 import { showcaseDex } from './showcase'
-import { difficultyPicker } from './starterSelect'
+import { segmented } from './shell'
 import { ownsPokemon, ownsShiny } from '../game/gacha'
 import { createMatch, matchHash, NETWORK_VERSION, REVIVE_SECONDS, selectMember, spectatorTarget, stepMatch, versusRadius, type Match, type MatchMode, type Trainer } from '../game/multiplayer'
 import { toSteps } from '../game/eggs'
@@ -44,6 +44,20 @@ type Lobby = { code: string; mode: MatchMode; difficulty?: string; seed: number;
 const readStorage = (key: string, fallback: string) => { try { return localStorage.getItem(key) ?? fallback } catch { return fallback } }
 const store = (key: string, value: string) => { try { localStorage.setItem(key, value) } catch { /* Session only. */ } }
 
+/** Normal / Hard / Nightmare for a room, saved like the solo pick (the same preference), with the line that says what it does. */
+const difficultyControl = (initial: Difficulty) => {
+  const m = t().difficulty
+  let current = initial
+  const blurb = h('small', {}, m.blurbs[current])
+  const seg = segmented(DIFFICULTY_IDS.map((id) => ({ id, label: m.names[id] })), current, (id) => set(id))
+  DIFFICULTY_IDS.forEach((id, i) => seg.el.children[i]!.classList.add(id))
+  const draw = () => { seg.set(current); blurb.textContent = m.blurbs[current] }
+  const set = (id: Difficulty) => { if (id === current) return; current = id; updateSave((s) => ({ ...s, difficulty: id })); draw() }
+  /** Re-reads the save: the partner select over the room can change it too. */
+  const sync = () => { const saved = loadSave().difficulty; if (saved !== current) { current = saved; draw() } }
+  return { el: h('div', { class: 'room-difficulty' }, h('b', {}, m.label), seg.el, blurb), sync }
+}
+
 /** The lobby owns its socket, input handlers, HUD and overlays; leaving tears down all of them. */
 export const multiplayerScreen = (root: HTMLElement, input: Input, ctx: CanvasRenderingContext2D, view: { w: number; h: number }, back: () => void): Screen => {
   const m = featureText(), save = loadSave(), params = new URLSearchParams(location.search)
@@ -59,7 +73,7 @@ export const multiplayerScreen = (root: HTMLElement, input: Input, ctx: CanvasRe
   const pokemon = h('button', { class: 'btn pokemon-choice', type: 'button', 'aria-label': m.collection, onclick: () => openPicker() }, chosenImg, chosenName)
   const drawChosen = () => { chosenImg.src = portraitUrl(showcaseDex(chosen)); chosenName.textContent = PLAYABLE[chosen].name }
   const shiny = h('input', { type: 'checkbox' })
-  const difficulty = difficultyPicker(save.difficulty)
+  const difficulty = difficultyControl(save.difficulty)
   const mode = h('select', { 'aria-label': m.friends }, h('option', { value: 'coop' }, m.coop), h('option', { value: 'versus' }, m.versus))
   // Difficulty only matters against the horde.
   mode.onchange = () => difficulty.el.classList.toggle('hidden', mode.value !== 'coop')
@@ -234,7 +248,7 @@ export const multiplayerScreen = (root: HTMLElement, input: Input, ctx: CanvasRe
           ranking = startTeamRanking(msg.mode, msg.players.map((p: Trainer) => p.id), msg.players.map((p: Trainer) => p.name))
           match = createMatch(msg.players, msg.mode, msg.seed, DIFFICULTY_IDS.find((d) => d === msg.difficulty) ?? 'normal')
           panel.classList.add('hidden'); el.classList.add('room-playing'); team.classList.remove('hidden'); notice.classList.remove('hidden')
-          hud = createHud(root, () => { special = true }, () => { mega = true }, () => { lunge = true }, () => { if (match?.mode === 'coop') command('pause') })
+          hud = createHud(root, () => { special = true }, () => { mega = true }, () => { lunge = true }, () => { if (match?.mode === 'coop') command('pause') }, input.isHeld)
           cards.clear()
           team.replaceChildren(...match.members.map((p) => {
             const fill = h('span', { class: 'team-hp-fill' }), hp = h('span', { class: 'team-hp-text' })

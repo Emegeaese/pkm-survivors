@@ -352,6 +352,8 @@ type ResultsExtras = {
   news: DexNews
   ranking: ResultsRanking | null
   share: ResultsShare | null
+  /** A victory's thanks to the supporters (`creditsLine`), above the support link. */
+  credits?: HTMLElement | null
 }
 
 const NO_EXTRAS: ResultsExtras = { badge: null, report: null, medals: [], eggs: { refund: 0, ready: 0 }, news: { species: 0, shinies: 0 }, ranking: null, share: null }
@@ -384,6 +386,7 @@ const runNews = ({ eggs, news, medals }: ResultsExtras) => {
  * a run that ends in endless mode shows its overtime, rift legendaries and Arceus.
  * The steps walked and eggs found feed the incubator (`extras.eggs`), and
  * `extras.news` adds a one-line Pokédex summary when the run found something new.
+ * A victory also links the support page, under the buttons (only then, so it never nags).
  */
 export const results = (
   root: HTMLElement,
@@ -492,6 +495,7 @@ export const results = (
         }),
       ),
       h('div', { class: 'buttons result-buttons' }, ...buttons),
+      victory && extras.credits,
     ),
   )
   root.append(el)

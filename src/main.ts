@@ -3,7 +3,8 @@ import '@fontsource/vt323'
 import './ui/style.css'
 
 import { playCry, playSfx, unlockAudio, type Sfx } from './engine/audio'
-import { createInput } from './engine/input'
+import { createInput, type Stick } from './engine/input'
+import type { Vec } from './engine/math'
 import { currentTheme, duckMusic, playTheme, type ThemeId } from './engine/music'
 import { context2d, resetCanvases } from './engine/pixelart'
 import { fitView } from './engine/viewport'
@@ -19,7 +20,6 @@ import type { TraitId } from './data/traits'
 import { REGIONS, STARTERS } from './data/starters'
 import { challengeStart, nextIsOfficial, type Challenge } from './game/challenge'
 import { HATCHLING_IDS, HATCHLINGS, isHatchling, PLAYABLE, playableDex, type HatchlingId, type PlayableId } from './data/hatchlings'
-import { startPresence } from './firebasePresence'
 import { accountState, accountsEnabled, backFromSignIn, onAccountChange, onGifts, receiveGifts, startAccount, syncSave } from './account'
 import { track } from './analytics'
 import { BAG_ITEM_IDS, BAG_ITEMS, useArmed, type BagItem } from './game/bag'
@@ -48,6 +48,8 @@ import { rosterSchedule, type Roster } from './game/roster'
 import { recordEvent, recordStep, runRoster, startGame, startRecording, TICK, type Recorder, type ReplayStart } from './game/replay'
 import { gameSpecial } from './game/special'
 import { unlockShinyStarter } from './game/shinyStarters'
+import { canWalkWith, isSupporter, SUPPORTER_TIERS, TIER_GIFTS, type SupporterTier } from './game/supporters'
+import { createCompanion, stepCompanion, type CompanionView } from './render/companion'
 import { MOVES } from './game/moves'
 import type { Game, GameEvent, Phase } from './game/types'
 import { setWeather } from './game/weather'
@@ -58,15 +60,16 @@ import { setMarkerInsets } from './render/mapEvents'
 import { consumableIcon } from './render/props'
 import { bagIcon, eggIcon, ribbonIcon } from './render/art'
 import { megaStoneIcon } from './render/megaFx'
-import { createTitleScene, drawTitleScene, stepTitleScene } from './render/titleScene'
+import { createTitleScene, drawTitleScene, meetPartner, steerPartner, stepTitleScene } from './render/titleScene'
 import { weatherIcon } from './render/weather'
-import { formatDay, locale, LOCALES, setLocale, t, type Locale } from './i18n'
+import { formatDay, locale, LOCALES, t } from './i18n'
 import { h, later, rich } from './ui/dom'
 import { setActivePad } from './ui/inputLabels'
 import { captureRef, flushRuns, PROFILE_PARAM, rankingEnabled, stageInvite, startRanked, type RankedRun, type RankOutcome } from './ranking'
 import { parseGiftContent, type GiftKind, type GiftReason } from './game/gifts'
 import { announceGifts } from './ui/gifts'
-import { accountScreen, playGate } from './ui/account'
+import { playGate } from './ui/account'
+import { trainerCardScreen } from './ui/trainer'
 import { createHud, type Hud } from './ui/hud'
 import { bankEggs, challengeToday, depositPokeDollars, loadAttempt, loadSave, outbreakToday, recordRunProgress, saveAttempt, saveHatch, today, updateSave, writeSave } from './ui/save'
 import { challengeScreen, challengeShiny } from './ui/challenge'
@@ -82,14 +85,14 @@ import { flashScreen, levelUp, pauseMenu, results, textBox, type Screen } from '
 import { isSettingsOpen, openSettings, settings, toggleMute } from './ui/settings'
 import { mapEventFeedback } from './ui/mapEvents'
 import { runShare, sharePreview, trainerShare } from './ui/share'
-import { martButton, shop } from './ui/shop'
-import { catalogueSelect, gachaScreen } from './ui/catalogue'
+import { shop } from './ui/shop'
 import { starterSelect } from './ui/starterSelect'
-import { firebaseText } from './i18n/firebase'
+import { titleScreen, type LobbyFocus, type Meadow } from './ui/title'
+import { startPresence } from './firebasePresence'
+import { gachaScreen } from './ui/catalogue'
 import { firebaseRankingScreen } from './ui/firebaseRanking'
 import { multiplayerScreen } from './ui/multiplayer'
 import { ownsPokemon, ownsShiny } from './game/gacha'
-import { titleButton, titleScreen } from './ui/title'
 import { banner, clearToasts, tickToasts, toast } from './ui/toasts'
 
 /** Fixed simulation step: the replays the ranking re-simulates count on it. */
@@ -98,7 +101,22 @@ const STEP = TICK
 const canvas = document.querySelector<HTMLCanvasElement>('#game')!
 const ui = document.querySelector<HTMLDivElement>('#ui')!
 const ctx = context2d(canvas)
-const input = createInput(canvas, () => settings().controls)
+/** Invisible box CSS puts where the fixed joystick sits (corner, safe area); the stick is centered on it. */
+const stickAnchor = h('div', { class: 'stick-anchor', 'aria-hidden': 'true' })
+document.body.append(stickAnchor)
+/** The anchor's center, measured once per layout (cleared on resize). */
+let stickCenter: Vec | null = null
+/** Mouse and keyboard: the fixed stick gives its corner to the WASD keys (`ui/movePad.ts`), and a touch on a touchscreen laptop floats. Same query as the CSS. */
+const finePointer = matchMedia('(hover: hover) and (pointer: fine)')
+const fixedStickCenter = (): Vec | null => {
+  if (settings().joystick !== 'fixed' || finePointer.matches) return null
+  if (!stickCenter) {
+    const r = stickAnchor.getBoundingClientRect()
+    stickCenter = { x: r.left + r.width / 2, y: r.top + r.height / 2 }
+  }
+  return stickCenter
+}
+const input = createInput(canvas, () => settings().controls, fixedStickCenter)
 /** Internal canvas size in world px. Shared by reference with the running game. */
 const view = { w: 480, h: 270 }
 /** CSS px per world px (integer in device px, see `fitView`). */
@@ -112,6 +130,7 @@ let dirty = true
  * the result actually changed, because resizing clears it.
  */
 const resize = () => {
+  stickCenter = null
   const width = window.visualViewport?.width ?? window.innerWidth
   const height = window.visualViewport?.height ?? window.innerHeight
   const fit = fitView(width, height, window.devicePixelRatio || 1)
@@ -180,11 +199,12 @@ type Run = {
    * device keeps (`saveAttempt`). Null for any other run.
    */
   challenge: { day: DayKey; official: boolean; attempt: boolean } | null
+  /** The supporter's companion walking along, drawn only (`render/companion.ts`). */
+  companion: CompanionView | null
 }
 
 let screen: Screen | null = null
 let run: Run | null = null
-let lastStarter: PlayableId = 'charmander'
 /** Special attack press (Space, touch button, gamepad A), consumed by the next simulation step. */
 let specialQueued = false
 /** Mega Evolution press (E, the Mega button, gamepad Y), consumed like the special. */
@@ -193,6 +213,19 @@ let megaQueued = false
 let lungeQueued = false
 /** The meadow with wandering Pokémon behind every menu. Lives across screens, so it never pops. */
 const scene = createTitleScene(Date.now())
+/** The joystick a drag on the lobby's meadow steers the partner with, drawn over it. */
+let meadowStick: Stick | null = null
+
+/** A CSS px point on screen, in the meadow's world px (the canvas sits at the viewport's corner). */
+const meadowAt = (at: Vec): Vec => ({ x: Math.round(scene.cam.x) + at.x / cssScale, y: Math.round(scene.cam.y) + at.y / cssScale })
+
+/** The lobby's handle on the meadow: its partner walks there. */
+const meadow: Meadow = {
+  meet: (partner) => meetPartner(scene, partner),
+  steer: (move, tap, home) => steerPartner(scene, move, tap && meadowAt(tap), meadowAt(home)),
+  out: () => scene.partner !== null && scene.partner.state !== 'home',
+  stick: (stick) => (meadowStick = stick),
+}
 
 const queueMega = () => {
   unlockAudio()
@@ -220,37 +253,32 @@ const setScreen = (next: Screen | null) => {
   screen = next
 }
 
-const changeLanguage = (next: Locale) => {
-  setLocale(next)
-  playSfx('select')
-}
-
 /** Set by the title's "press start": the music waits for it, even where the browser would autoplay. */
 let pressedStart = false
 
 /**
  * Title screen. `intro` shows the blinking "press start" first (boot, PWA launch, not back from signing in);
- * coming back from the starter select goes straight to the menu. `focus` is the menu entry to highlight.
+ * coming back from the starter select goes straight to the lobby. `focus` is what the lobby highlights (JOGAR by default).
  */
-const showTitle = (opts: { intro?: boolean; focus?: number } = {}) => {
+const showTitle = (opts: { intro?: boolean; focus?: LobbyFocus } = {}) => {
   endRun()
   setScreen(
     titleScreen(ui, input, {
-      friends: () => showFriends(),
-      gacha: () => showGacha(),
       play: () => (accountsEnabled && !playingAsGuest && accountState().kind === 'guest' ? showPlayGate() : showMenu()),
       challenge: () => showChallenge(),
-      incubator: () => showIncubator(() => showTitle({ focus: 2 })),
+      incubator: () => showIncubator(() => showTitle({ focus: 'eggs' })),
       missions: () => showMissions(),
-      // Every label is read at render time, so switching language just rebuilds the screen.
-      language: (next) => (changeLanguage(next), showTitle()),
       ready: () => (pressedStart = true),
       // The language may change inside Settings, so closing them rebuilds the title on the same entry.
       settings: (focus) => openSettings(ui, input, () => showTitle({ focus })),
       pokedex: (focus) => pokedexScreen(ui, input, () => showTitle({ focus }), showPcBox),
-      // Closing rebuilds the title, so a sign in's merged save (title badge) shows up.
-      account: accountsEnabled ? (focus) => accountScreen(ui, input, () => showTitle({ focus })) : undefined,
+      mart: (focus) => shop(ui, input, () => showTitle({ focus })),
+      // Closing rebuilds the title, so a sign in's merged save shows up on the Trainer chip.
+      trainer: (focus) => trainerCardScreen(ui, input, () => showTitle({ focus })),
       ranking: (focus) => firebaseRankingScreen(ui, input, () => showTitle({ focus })),
+      gacha: (focus) => gachaScreen(ui, input, () => showTitle({ focus })),
+      friends: (focus) => showFriends(focus),
+      meadow,
     }, opts),
   )
 }
@@ -264,41 +292,46 @@ const showPlayGate = () =>
     playGate(ui, input, {
       play: () => showMenu(),
       guest: () => ((playingAsGuest = true), showMenu()),
-      back: () => showTitle(),
+      back: () => showTitle({ focus: 'play' }),
     }),
   )
 
-/** Pokémon select, with the Poké Mart (top right) and the way back to the title (top left). */
-const showMenu = (initial: PlayableId = lastStarter) => {
+/** The partner select; its top bar leads back to the title, to the Poké Mart (the wallet) and to Settings, which come back to it on the same Pokémon. */
+const showMenu = (initial: PlayableId = loadSave().partner) => {
   endRun()
   const select = starterSelect(ui, input, {
     pick: (id) => setTimeout(() => void startRun(id), 250),
+    back: () => showTitle({ focus: 'play' }),
+    mart: () => showShop(),
+    settings: () => setScreen(openSettings(ui, input, () => showMenu(select.selected()))),
     incubator: () => showIncubator(() => showMenu(select.selected())),
   }, initial)
-  const closeMart = martButton(ui, input, () => showShop())
-  const closeBack = titleButton(ui, input, () => showTitle())
-  const all = h('button', { class: 'btn all-pokemon-entry', onclick: () => showAllPokemon(select.selected()) }, firebaseText().catalogue)
-  select.el.querySelector('.select-footer')?.append(all)
-  select.el.querySelector('.select-main')?.append(h('p', { class: 'initial-note' }, firebaseText().initial))
-  setScreen({ ...select, dispose: () => (closeMart(), closeBack(), select.dispose()) })
+  setScreen(select)
 }
 
-const showAllPokemon = (initial: PlayableId = lastStarter) => {
-  const select = catalogueSelect(ui, input, { pick: (id) => void startRun(id), incubator: () => showIncubator(() => showAllPokemon(select.selected())), gacha: () => showGacha(() => showAllPokemon(select.selected())) }, initial)
-  const closeBack = titleButton(ui, input, () => showMenu())
-  setScreen({ ...select, dispose: () => (closeBack(), select.dispose()) })
+/** The save's companion for a run starting now, if it's a supporter's and still allowed (its sprites start loading). */
+const runCompanion = (at: Vec): CompanionView | null => {
+  const save = loadSave()
+  const c = save.companion
+  if (!c || !isSupporter(save) || !canWalkWith(save, c)) return null
+  const dex = PLAYABLE[c.id].line[0].dex
+  void (c.shiny ? preloadShinies([dex]) : loadSpecies(dex)).catch(() => {})
+  return createCompanion(dex, c.shiny, at)
+}
+
+/** "Play with friends": rooms and invitations. It replaces the title and comes back to it on `focus`. */
+const showFriends = (focus: LobbyFocus = 'friends') => {
+  endRun()
+  setScreen(multiplayerScreen(ui, input, ctx, view, () => showTitle({ focus })))
 }
 
 const showShop = () => setScreen(shop(ui, input, () => showMenu()))
 
-const showGacha = (back: () => void = () => showTitle()) => setScreen(gachaScreen(ui, input, back))
-const showFriends = () => { endRun(); setScreen(multiplayerScreen(ui, input, ctx, view, () => showTitle())) }
-
 /** The Caixa do PC (from the Pokédex); its Trainer Card stands the last Pokémon played beside the trainer. */
 const showPcBox = (back: () => void) =>
-  pcBoxScreen(ui, input, { onClose: back, trainerCard: (close) => sharePreview(ui, input, trainerShare(lastStarter), close) }, loadSave().style.equipped.wallpaper)
+  pcBoxScreen(ui, input, { onClose: back, trainerCard: (close) => sharePreview(ui, input, trainerShare(loadSave().partner), close) }, loadSave().style.equipped.wallpaper)
 
-const showMissions = () => setScreen(missionsScreen(ui, input, () => showTitle({ focus: 3 })))
+const showMissions = () => setScreen(missionsScreen(ui, input, () => showTitle({ focus: 'missions' })))
 
 /** The Desafio do dia's screen (from the title); its board opens over it and comes back to it. */
 const showChallenge = () => {
@@ -307,7 +340,7 @@ const showChallenge = () => {
     challengeScreen(ui, input, {
       play: (c, official) => setTimeout(() => void startRun(c.starter, { challenge: c, official }), 250),
       board: rankingEnabled ? () => setScreen(rankingScreen(ui, input, () => showChallenge(), { challenge: true })) : undefined,
-      onClose: () => showTitle({ focus: 1 }),
+      onClose: () => showTitle({ focus: 'challenge' }),
     }),
   )
 }
@@ -491,11 +524,13 @@ const openingDex = (plan: RunPlan) => rosterSchedule(plan.roster).flatMap((s) =>
  * next run's opening.
  */
 const startRun = async (starter: PlayableId, daily: ChallengeRun | null = null) => {
-  if (!daily && !ownsPokemon(loadSave(), starter)) return showGacha()
   setScreen(null)
   endRun()
   const c = daily?.challenge ?? null
-  if (!c) lastStarter = starter
+  // A Pokémon the player does not own (a stale link, an old save) goes back to the select.
+  if (!c && !ownsPokemon(loadSave(), starter)) return showMenu()
+  // The Desafio do dia's Pokémon is the day's, not the player's pick.
+  if (!c) updateSave((s) => ({ ...s, partner: starter }))
   const loading = loadingScreen()
   ui.append(loading)
   // The start token's clock starts now, while the sprites load.
@@ -553,6 +588,7 @@ const startRun = async (starter: PlayableId, daily: ChallengeRun | null = null) 
     rank: null,
     bestBefore: save.achievements.lifetime.bestTime,
     challenge: daily ? { day: daily.challenge.day, official: daily.official, attempt: false } : null,
+    companion: runCompanion(game.player),
   }
   track('run_start', { starter, difficulty: game.difficulty, ...(daily ? { challenge: daily.official ? 'official' : 'practice' } : {}) })
   announceRun(start, run.challenge)
@@ -576,7 +612,7 @@ const announceRun = (start: ReplayStart, challenge: Run['challenge']) => {
 }
 
 const runHud = (game: Game) => {
-  const hud = createHud(ui, queueSpecial, queueMega, queueLunge, () => game.phase === 'playing' && (game.phase = 'paused'))
+  const hud = createHud(ui, queueSpecial, queueMega, queueLunge, () => game.phase === 'playing' && (game.phase = 'paused'), input.isHeld)
   requestAnimationFrame(syncMarkerInsets)
   return hud
 }
@@ -603,8 +639,10 @@ const runSettings = (r: Run, back: () => void) => {
     if (locale() !== before) {
       r.hud.dispose()
       r.hud = runHud(r.game)
-      dirty = true
     }
+    // The joystick mode moves the status box and shows or hides the fixed stick.
+    dirty = true
+    requestAnimationFrame(syncMarkerInsets)
     back()
   })
 }
@@ -633,7 +671,7 @@ const syncOverlay = (r: Run) => {
         ui,
         input,
         g,
-        () => afterRun(() => void (r.challenge ? replayChallenge() : startRun(lastStarter))),
+        () => afterRun(() => void (r.challenge ? replayChallenge() : startRun(loadSave().partner))),
         () => afterRun(() => showMenu()),
         () => (recordEvent(r.recorder, ['endless']), continueEndless(g)),
         {
@@ -649,6 +687,7 @@ const syncOverlay = (r: Run) => {
             open: (back) => sharePreview(ui, input, runShare(g, r.dexBase, r.challenge && r.rank ? r.rank.then((o) => (o.kind === 'ranked' ? o.challenge : null)) : null), back),
             glow: g.player.shiny || g.dexLog.shinies.size > 0 || wonRun(g) || g.time > r.bestBefore,
           },
+          credits: null,
         },
       )
       break
@@ -968,7 +1007,8 @@ const frame = (now: number) => {
     let steps = 0
     if (g.phase === 'playing' || g.phase === 'evolving') {
       acc += dt
-      while (acc >= STEP) {
+      // A level-up or a faint ends the frame's steps: the ones left over would go into the replay as ticks the run never played.
+      while (acc >= STEP && (g.phase === 'playing' || g.phase === 'evolving')) {
         // The simulation gets the stick as the replay stores it (`moveCode`), so a re-simulation sees the same run.
         if (specialQueued) recordEvent(r.recorder, ['special'])
         if (megaQueued) recordEvent(r.recorder, ['mega'])
@@ -993,9 +1033,10 @@ const frame = (now: number) => {
       tickToasts(ui, dt, g.phase !== 'playing')
       // Redraw only when the simulation advanced: halves the work on 120 Hz phones and
       // idles the GPU while a menu is open over a frozen frame.
+      if (r.companion && steps > 0) stepCompanion(r.companion, g.player, steps * STEP)
       if (steps > 0 || dirty) {
         dirty = false
-        render(ctx, g, t, settings())
+        render(ctx, g, t, { ...settings(), companion: r.companion })
         const stick = input.readStick()
         if (stick && g.phase === 'playing') drawJoystick(ctx, stick, cssScale)
         r.hud.update(g)
@@ -1007,8 +1048,12 @@ const frame = (now: number) => {
     drawTitleScene(ctx, scene, view.w, view.h)
     ctx.fillStyle = `rgba(16,24,48,${screen?.dim ?? 0.35})`
     ctx.fillRect(0, 0, view.w, view.h)
-    // Menu news (what a quit run completed) shares the run's queue.
-    tickToasts(ui, dt, false)
+    if (meadowStick) drawJoystick(ctx, meadowStick, cssScale)
+    // The wild Pokémon the partner greets answer with their cry.
+    for (const dex of scene.cries.splice(0)) playCry(cryUrl(dex), 0.3)
+    // Menu news (what a quit run completed) shares the run's queue. Banners (Mystery Gifts) wait
+    // for the bare title: over the starter select or a dialog they'd cover what the player is reading.
+    tickToasts(ui, dt, false, !ui.querySelector(':scope > .title-home:not(.hidden)') || ui.querySelector(':scope > .screen.dim:not(.hidden)') !== null)
   }
   screen?.tick?.(t)
   playTheme(themeFor(run?.game ?? screen?.playing?.() ?? null))
@@ -1057,15 +1102,15 @@ const boot = () => {
   captureRef()
   const shared = rankingEnabled ? parseHandle(new URLSearchParams(location.search).get(PROFILE_PARAM)) : null
   if (shared) showSharedProfile(shared)
+  else if (new URLSearchParams(location.search).has('room')) showFriends('friends')
   // Back from signing in, the player already pressed start before leaving: straight to the menu.
-  else if (new URLSearchParams(location.search).has('room')) showFriends()
   else showTitle({ intro: !backFromSignIn() })
   requestAnimationFrame(frame)
   void preloadInBackground()
   promptProfile()
   startAccount()
-  startPresence()
   // Results that didn't reach the ranking last time (offline) go now, once the account is back.
+  startPresence()
   onAccountChange((s) => { if (s.kind === 'signedIn' && s.sync === 'synced') void flushRuns() })
   window.addEventListener('online', () => { void flushRuns() })
 }
@@ -1161,16 +1206,28 @@ const devGifts = {
   /**
    * Lands a Mystery Gift as if the account brought it: `ps.gift('egg', 'friend')`, `ps.gift('coins', '500')`,
    * `ps.gift('title')`, `ps.gift('style', 'ambassador')` (a frame), `ps.gift('shinyHatch', 'munchlax')`,
-   * `ps.gift('ribbon', 'gold')` (yesterday's challenge, #12 of 340).
+   * `ps.gift('ribbon', 'gold')` (yesterday's challenge, #12 of 340), `ps.gift('shinyPick')` (a shiny of one's choice).
    * `why`: an inviter's handle (welcome) or a count of friends brought.
    */
   gift: (kind: GiftKind = 'egg', arg?: string, why?: string | number) => {
-    const raw = { egg: { tier: arg ?? 'friend' }, coins: { amount: Number(arg ?? 500) }, title: { title: arg ?? 'ambassador' }, style: { style: { slot: 'frame', id: arg ?? 'ambassador' } }, shinyHatch: { family: arg ?? 'munchlax' }, ribbon: { ribbon: { day: previousDay(brasiliaDay(today())), tier: arg ?? 'gold', rank: 12, total: 340 } } }[kind]
+    const raw = { egg: { tier: arg ?? 'friend' }, coins: { amount: Number(arg ?? 500) }, title: { title: arg ?? 'ambassador' }, style: { style: { slot: 'frame', id: arg ?? 'ambassador' } }, shinyHatch: { family: arg ?? 'munchlax' }, ribbon: { ribbon: { day: previousDay(brasiliaDay(today())), tier: arg ?? 'gold', rank: 12, total: 340 } }, shinyPick: {} }[kind]
     const content = parseGiftContent({ kind, ...raw })
-    if (!content) return 'Kinds: egg (tier), coins (amount), title, style (frame id), shinyHatch (family), ribbon (tier)'
+    if (!content) return 'Kinds: egg (tier), coins (amount), title, style (frame id), shinyHatch (family), ribbon (tier), shinyPick'
     const reason: GiftReason | null = typeof why === 'number' ? { kind: 'friends', count: why } : why ? { kind: 'welcome', from: why } : null
     return receiveGifts([{ id: `dev-${Date.now()}`, content, reason }])
   },
+  /**
+   * Lands a supporter's thank-you as Mystery Gifts in one sync, as if a donation was credited: `supporter`
+   * brings the title, the frame and a shiny ticket; `gold` every tier up to gold (a first donation of R$ 50).
+   */
+  supporter: (tier: SupporterTier = 'supporter') =>
+    receiveGifts(
+      SUPPORTER_TIERS.slice(0, SUPPORTER_TIERS.indexOf(tier) + 1).flatMap((t) =>
+        TIER_GIFTS[t].map((content, i) => ({ id: `dev-support-${t}-${i}-${Date.now()}`, content, reason: { kind: 'support', tier: t } as const })),
+      ),
+    ),
+  /** Takes `id` along as the companion (`shiny` if owned so); no argument walks alone. Shows from the next run. */
+  companion: (id?: PlayableId, shiny = false) => updateSave((s) => ({ ...s, companion: id ? { id, shiny } : null })),
   /** Lands as a guest invited by `handle` (shown as `name`): the title shows the invite banner. */
   invite: (handle = 'ash', name = 'Ash') => {
     stageInvite(handle, name)
@@ -1223,7 +1280,6 @@ if (import.meta.env.DEV) {
   Object.assign(window, {
     ps: {
       run: () => run,
-      match: () => screen?.debug?.(),
       startRun,
       showTitle,
       showMenu,
@@ -1233,9 +1289,11 @@ if (import.meta.env.DEV) {
       event: devEvent,
       challenge: devChallenge,
       dex: () => loadSave().dex,
+      /** The lobby's meadow: its wanderers, the partner and the camera, to stage greetings (`ps.meadow().partner`). */
+      meadow: () => scene,
       /** The Caixa do PC over the title; `ps.card()` opens the Trainer Card's share preview. */
       pc: () => (endRun(), setScreen(showPcBox(() => showTitle()))),
-      card: (partner: PlayableId = lastStarter) => (endRun(), setScreen(sharePreview(ui, input, trainerShare(partner), () => showTitle()))),
+      card: (partner: PlayableId = loadSave().partner) => (endRun(), setScreen(sharePreview(ui, input, trainerShare(partner), () => showTitle()))),
       biome: (id: BiomeId) => withRun((g) => setBiome(g, id)),
       terrain: (kind?: SolidKind | 'lake', dy?: number) => (run ? devTerrain(run.game, kind, dy) : console.warn('ps: start a run first')),
       weather: (id: WeatherId) => withRun((g) => setWeather(g, id)),
@@ -1249,7 +1307,7 @@ if (import.meta.env.DEV) {
         upcoming = planRun()
         if (screen?.el.classList.contains('title-home')) showTitle()
         else if (screen?.el.classList.contains('mart-screen')) showShop()
-        else if (screen?.el.querySelector('.select-layout')) showMenu()
+        else if (screen?.el.classList.contains('partner-screen')) showMenu()
       }),
     },
   })

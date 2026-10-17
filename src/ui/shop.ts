@@ -18,24 +18,6 @@ import { hint, menu, type Screen } from './screens'
 
 const isTouch = (e: Event) => e instanceof PointerEvent && e.pointerType !== '' && e.pointerType !== 'mouse'
 
-/**
- * Small Poké Mart entry on the title screen (top-right corner). `L` opens it too.
- * Returns a disposer.
- */
-export const martButton = (root: HTMLElement, input: Input, onOpen: () => void) => {
-  const el = h(
-    'button',
-    { class: 'mart-entry box', 'aria-label': t().mart.open },
-    h('img', { src: coinIcon(2), alt: '' }),
-    h('span', { class: 'mart-entry-text' }, h('b', {}, 'POKé MART'), h('span', {}, formatPokeDollars(loadSave().wallet))),
-    h('span', { class: 'key-hint' }, 'L'),
-  )
-  el.addEventListener('click', () => later(onOpen))
-  const off = input.onKey((key) => key === 'KeyL' && later(onOpen))
-  root.append(el)
-  return () => (off(), el.remove())
-}
-
 /** Yes/no dialog layered over the mart. Defaults to "no" so a stray Enter is harmless. */
 const confirmDialog = (root: HTMLElement, input: Input, text: string, onAnswer: (yes: boolean) => void): Screen => {
   const yes = h('button', { class: 'btn' }, t().mart.yes)

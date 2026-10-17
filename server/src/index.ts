@@ -1,11 +1,16 @@
+import { createClerkClient } from '@clerk/backend'
 import { serve } from '@hono/node-server'
+import { adminStore } from './admin'
 import { createApp } from './app'
 import { clerkVerifier } from './auth'
 import { connect, migrate, saveStore } from './db'
 import { createChecks } from './checks'
 import { createRibbons } from './challenge'
+import { abacatePay } from './donations'
 import { giftStore } from './gifts'
 import { rankingStore } from './ranking'
+import { supporterStore } from './supporters'
+import { suggestionStore } from './suggestions'
 import { loadEnv } from './env'
 
 const env = loadEnv()
@@ -26,6 +31,11 @@ const app = createApp({
   gifts,
   checks,
   verify: clerkVerifier(env),
+  donate: env.abacatePayKey ? abacatePay(env.abacatePayKey) : null,
+  supporters: supporterStore(sql),
+  suggestions: suggestionStore(sql),
+  admin: adminStore(sql, createClerkClient({ secretKey: env.clerkSecretKey }), env.adminEmails),
+  webhooks: { stripeSecret: env.stripeWebhookSecret, stripePaymentLink: env.stripePaymentLink, abacatePaySecret: env.abacatePayWebhookSecret },
   allowedOrigin: env.allowedOrigin,
   ping: () => sql`select 1`.then(() => true, () => false),
 })

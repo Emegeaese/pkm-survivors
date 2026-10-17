@@ -3,18 +3,28 @@ import { bodyLimit } from 'hono/body-limit'
 import { cors } from 'hono/cors'
 import { createMiddleware } from 'hono/factory'
 import { logger } from 'hono/logger'
+import { parseAdminGift, parseAdminQuery } from '../../src/game/admin'
 import { challengeOpen } from '../../src/game/challenge'
+import { parseDonation } from '../../src/data/donations'
+import { isPollOption } from '../../src/data/supporters'
 import { isDayKey } from '../../src/game/day'
 import { isDifficulty } from '../../src/game/difficulty'
 import { parseSaveData } from '../../src/game/meta'
 import { isRecord } from '../../src/game/parse'
 import { isBoardPeriod, isPlayable, parseDisplayName, parseHandle, parseRunResult } from '../../src/game/ranking'
 import { parseReplay } from '../../src/game/replay'
+import { parseCode } from '../../src/game/supporters'
+import { isSuggestionSort, isSuggestionStatus, isVote, parseSuggestionDraft } from '../../src/game/suggestions'
+import type { AdminStore } from './admin'
 import type { Verify } from './auth'
 import type { Checks } from './checks'
 import type { SaveStore } from './db'
+import type { Donate } from './donations'
 import type { GiftStore } from './gifts'
 import type { RankingStore } from './ranking'
+import type { SupporterStore } from './supporters'
+import { SUGGESTION_ID, type SuggestionStore } from './suggestions'
+import { abacateDonation, ABACATE_REF, stripeDonation, verifyAbacate, verifyStandard, verifyStripe } from './webhooks'
 
 export type AppDeps = {
   store: SaveStore
@@ -23,6 +33,15 @@ export type AppDeps = {
   /** Re-simulates finished runs after the answer went out. */
   checks: Pick<Checks, 'schedule'>
   verify: Verify
+  /** Donation checkouts (AbacatePay), null when the server has no key for them. */
+  donate: Donate | null
+  supporters: SupporterStore
+  /** The idea board. */
+  suggestions: SuggestionStore
+  /** The gift desk: who is admin (asked of Clerk), finding players and sending them gifts. */
+  admin: Pick<AdminStore, 'isAdmin' | 'search' | 'send' | 'recent'>
+  /** Webhook secrets: Stripe's signing secret and Payment Link, AbacatePay's URL secret. Unset ones answer 503. */
+  webhooks: { stripeSecret?: string; stripePaymentLink: string | null; abacatePaySecret?: string }
   allowedOrigin: (origin: string) => boolean
   /** Whether the database answers, for `/health`. */
   ping: () => Promise<boolean>
@@ -31,6 +50,21 @@ export type AppDeps = {
 type Auth = { Variables: { userId: string } }
 
 type MaybeAuth = { Variables: { userId: string | null } }
+
+/** Where donors land when the site that sent them isn't one we know. */
+const SITE = 'https://www.pokemonsurvivors.com'
+
+/** A same-site path to come back to (`/apoie/`, `/en/support/`). */
+const SITE_PATH = /^\/[a-z0-9/-]{0,40}$/
+
+/** A donation's `ref`: our uuid (AbacatePay) or a Stripe Checkout Session id. */
+const DONATION_REF = /^(?:[0-9a-f-]{36}|cs_(?:test|live)_[A-Za-z0-9]{10,200})$/
+
+/** What a hand-sent gift answers when it doesn't go, by `SendOutcome`. */
+const SEND_ERRORS = { unknown: 404, 'bad request': 400 } as const
+
+/** What posting or voting on an idea answers when it doesn't go. */
+const SUGGESTION_ERRORS = { profile: 403, limit: 429, unknown: 404, closed: 409 } as const
 
 /** What a run's end answers when it's refused, by `FinishError`. */
 const FINISH_ERRORS = { unknown: 404, mismatch: 409, clock: 422, challenge: 400 } as const
@@ -67,8 +101,31 @@ const FINISH_ERRORS = { unknown: 404, mismatch: 409, clock: 422, challenge: 400 
  * - `POST /gifts/claim` (auth) `{ ids }`: marks those gifts claimed (the game applied them). `{ claimed }`.
  * - `POST /referral` (auth) `{ ref }`: the inviter's handle a new account came with. `{ referred }`:
  *   whether it counted (only a new account, never oneself: `canRefer`).
+ * - `POST /donations` `{ amount, page, handle? }`: `{ url }`, an AbacatePay checkout (Pix or a
+ *   Brazilian card) for `amount` whole reais (`parseDonation`), for the account of `handle`
+ *   (400 when nobody has it). The donor comes back to `page` on the site, with
+ *   `?thanks=<ref>` once paid. 503 without an AbacatePay key.
+ * - `GET /donations/:ref`: `DonationStatus`, for the thank-you page (404 until the payment is known).
+ * - `POST /donations/redeem` (auth) `{ code }`: credits a donation's code to the player. `{ tier }`;
+ *   404 for an unknown code, 409 for one already used.
+ * - `POST /webhooks/stripe`, `POST /webhooks/abacatepay`: the payment providers say a donation is paid
+ *   (signed: `webhooks.ts`; AbacatePay's the Standard Webhooks way, or with `?webhookSecret=` for an
+ *   older webhook). 401 for a bad signature, 503 without the secret.
+ * - `GET /me/supporter` (auth): `SupporterStatus`. `PUT /me/supporter` (auth) `{ public }`: shows or hides the badge and name.
+ * - `GET /supporters`: `{ supporters }`, the wall (`WallEntry[]`, with each one's title and Hall da Fama Pokémon).
+ * - `GET /poll`: `Poll`. `PUT /poll` (auth) `{ choice }`: a supporter's vote, 403 for anyone else.
+ * - `GET /suggestions?sort=top|new|done`: `{ suggestions }` (`Suggestion[]`), a tab of the idea board, with the asker's votes.
+ * - `POST /suggestions` (auth) `{ title, body }`: posts an idea (`parseSuggestionDraft`), 201 `{ suggestion }`.
+ *   400 invalid, 403 before the player has a handle, 429 past `SUGGESTION.perDay` in 24 hours.
+ * - `PUT /suggestions/:id/vote` (auth) `{ vote }` (1, -1, or 0 to take it back): `{ score, vote }`. 404 unknown, 409 shipped.
+ * - `/admin…` (admin): the gift desk, 403 for anyone whose verified email isn't in `ADMIN_EMAILS`.
+ *   `GET /admin`: `{ admin: true }`. `GET /admin/users?q=`: `{ users }` (`AdminUser[]`) by handle or email.
+ *   `POST /admin/gifts` `{ userId, content, request }`: sends a gift (`parseAdminGift`), `{ sent }`
+ *   (false when that `request` already went); 404 for an unknown player. `GET /admin/gifts`: `{ gifts }`
+ *   (`AdminSent[]`), the latest sent by hand. `PUT /admin/suggestions/:id` `{ status }`: marks an idea
+ *   `done` (shipped), `open` again or `hidden` (off the board). `{ status }`, 404 for an unknown idea.
  */
-export const createApp = ({ store, ranking, gifts, checks, verify, allowedOrigin, ping }: AppDeps) => {
+export const createApp = ({ store, ranking, gifts, checks, verify, donate, supporters, suggestions, admin, webhooks, allowedOrigin, ping }: AppDeps) => {
   const app = new Hono()
 
   app.use(logger())
@@ -94,6 +151,8 @@ export const createApp = ({ store, ranking, gifts, checks, verify, allowedOrigin
   })
 
   const smallBody = bodyLimit({ maxSize: 4 * 1024 })
+  // A run's result and its replay: an hour of play records up to ~450 KB, so this fits the longest run `RANKED.maxTime` allows.
+  const runBody = bodyLimit({ maxSize: 2 * 1024 * 1024 })
 
   const json = (c: { req: { json: () => Promise<unknown> } }) => c.req.json().catch(() => null)
 
@@ -130,7 +189,7 @@ export const createApp = ({ store, ranking, gifts, checks, verify, allowedOrigin
   })
 
   // A 30-minute replay is ~60 KB of JSON.
-  app.put('/runs/:token', auth, bodyLimit({ maxSize: 512 * 1024 }), async (c) => {
+  app.put('/runs/:token', auth, runBody, async (c) => {
     const body = await json(c)
     const result = parseRunResult(body)
     if (!result) return c.json({ error: 'implausible result' }, 400)
@@ -196,6 +255,158 @@ export const createApp = ({ store, ranking, gifts, checks, verify, allowedOrigin
     if (!ref) return c.json({ error: 'expected { ref }' }, 400)
     return c.json({ referred: await gifts.refer(c.var.userId, ref) })
   })
+
+  app.post('/donations', smallBody, async (c) => {
+    if (!donate) return c.json({ error: 'donations are off' }, 503)
+    const body = await json(c)
+    const amount = isRecord(body) ? parseDonation(body.amount) : null
+    if (!amount) return c.json({ error: 'expected { amount } in whole reais' }, 400)
+    const typed = isRecord(body) && typeof body.handle === 'string' ? body.handle.trim() : ''
+    const handle = typed ? parseHandle(typed) : null
+    if (typed && !handle) return c.json({ error: 'no such player' }, 400)
+    const origin = c.req.header('Origin')
+    const base = origin && allowedOrigin(origin) ? origin : SITE
+    const page = isRecord(body) && typeof body.page === 'string' && SITE_PATH.test(body.page) ? body.page : '/'
+    const ref = crypto.randomUUID()
+    if (!(await supporters.open(ref, handle))) return c.json({ error: 'no such player' }, 400)
+    const url = await donate(amount, { completionUrl: `${base}${page}?thanks=${ref}`, returnUrl: `${base}${page}` }, `${ABACATE_REF}${ref}`)
+    return c.json({ url })
+  })
+
+  app.get('/donations/:ref', async (c) => {
+    const ref = c.req.param('ref')
+    const status = DONATION_REF.test(ref) ? await supporters.status(ref) : null
+    return status ? c.json(status) : c.json({ error: 'unknown donation' }, 404)
+  })
+
+  app.post('/donations/redeem', auth, smallBody, async (c) => {
+    const body = await json(c)
+    const code = isRecord(body) ? parseCode(body.code) : null
+    if (!code) return c.json({ error: 'unknown code' }, 404)
+    const redeemed = await supporters.redeem(c.var.userId, code)
+    if (!redeemed.ok) return c.json({ error: redeemed.error }, redeemed.error === 'used' ? 409 : 404)
+    return c.json({ tier: redeemed.tier })
+  })
+
+  const hookBody = bodyLimit({ maxSize: 64 * 1024 })
+
+  app.post('/webhooks/stripe', hookBody, async (c) => {
+    if (!webhooks.stripeSecret) return c.json({ error: 'webhook off' }, 503)
+    const raw = await c.req.text()
+    if (!verifyStripe(raw, c.req.header('Stripe-Signature'), webhooks.stripeSecret, Date.now() / 1000)) return c.json({ error: 'bad signature' }, 401)
+    const event: unknown = JSON.parse(raw)
+    const paid = stripeDonation(event, webhooks.stripePaymentLink)
+    if (paid) await supporters.paid(paid)
+    // A paid session dropped only for its link is usually a mistyped STRIPE_PAYMENT_LINK (ids are case-sensitive).
+    const dropped = paid ? null : stripeDonation(event, null)
+    if (dropped) console.warn(`stripe session ${dropped.ref} is paid but ignored: its payment link isn't STRIPE_PAYMENT_LINK (${webhooks.stripePaymentLink})`)
+    return c.json({ received: true })
+  })
+
+  // AbacatePay signs the Standard Webhooks way since 01/10/2026; webhooks made before still send the URL secret and the public-key HMAC.
+  app.post('/webhooks/abacatepay', hookBody, async (c) => {
+    const secret = webhooks.abacatePaySecret
+    if (!secret) return c.json({ error: 'webhook off' }, 503)
+    const raw = await c.req.text()
+    const standard = { id: c.req.header('webhook-id'), timestamp: c.req.header('webhook-timestamp'), signature: c.req.header('webhook-signature') }
+    const ok = standard.signature
+      ? verifyStandard(raw, standard, secret, Date.now() / 1000)
+      : c.req.query('webhookSecret') === secret && verifyAbacate(raw, c.req.header('X-Webhook-Signature'))
+    if (!ok) return c.json({ error: 'bad signature' }, 401)
+    const paid = abacateDonation(JSON.parse(raw))
+    if (paid) await supporters.paid(paid)
+    return c.json({ received: true })
+  })
+
+  app.get('/me/supporter', auth, async (c) => c.json(await supporters.mine(c.var.userId)))
+
+  app.put('/me/supporter', auth, smallBody, async (c) => {
+    const body = await json(c)
+    if (!isRecord(body) || typeof body.public !== 'boolean') return c.json({ error: 'expected { public }' }, 400)
+    await supporters.setPublic(c.var.userId, body.public)
+    return c.json(await supporters.mine(c.var.userId))
+  })
+
+  app.get('/supporters', async (c) => {
+    c.header('Cache-Control', 'public, max-age=60')
+    return c.json({ supporters: await supporters.wall() })
+  })
+
+  app.get('/poll', async (c) => c.json(await supporters.poll()))
+
+  app.put('/poll', auth, smallBody, async (c) => {
+    const body = await json(c)
+    const choice = isRecord(body) && isPollOption(body.choice) ? body.choice : null
+    if (!choice) return c.json({ error: 'expected { choice }' }, 400)
+    if (!(await supporters.vote(c.var.userId, choice))) return c.json({ error: 'supporters only' }, 403)
+    return c.json(await supporters.poll())
+  })
+
+  app.get('/suggestions', maybeAuth, async (c) => {
+    const sort = c.req.query('sort') ?? 'top'
+    if (!isSuggestionSort(sort)) return c.json({ error: 'unknown sort' }, 400)
+    return c.json({ suggestions: await suggestions.list(sort, c.var.userId) })
+  })
+
+  app.post('/suggestions', auth, smallBody, async (c) => {
+    const draft = parseSuggestionDraft(await json(c))
+    if (!draft) return c.json({ error: 'expected { title, body }' }, 400)
+    const posted = await suggestions.post(c.var.userId, draft)
+    if (!posted.ok) return c.json({ error: posted.error }, SUGGESTION_ERRORS[posted.error])
+    return c.json({ suggestion: posted.suggestion }, 201)
+  })
+
+  app.put('/suggestions/:id/vote', auth, smallBody, async (c) => {
+    const id = c.req.param('id')
+    const body = await json(c)
+    const vote = isRecord(body) && isVote(body.vote) ? body.vote : null
+    if (vote === null) return c.json({ error: 'expected { vote }' }, 400)
+    if (!SUGGESTION_ID.test(id)) return c.json({ error: 'unknown' }, 404)
+    const voted = await suggestions.vote(c.var.userId, id, vote)
+    if (!voted.ok) return c.json({ error: voted.error }, SUGGESTION_ERRORS[voted.error])
+    return c.json({ score: voted.score, vote: voted.vote })
+  })
+
+  /** The desk's routes, all behind a valid token whose user Clerk says is admin. Everyone else gets 403, whatever they send. */
+  const desk = new Hono<Auth>()
+
+  desk.use(auth, async (c, next) => {
+    if (!(await admin.isAdmin(c.var.userId))) return c.json({ error: 'forbidden' }, 403)
+    await next()
+  })
+
+  desk.get('/', (c) => c.json({ admin: true }))
+
+  desk.get('/users', async (c) => {
+    const q = parseAdminQuery(c.req.query('q'))
+    if (!q) return c.json({ error: 'expected ?q= a handle or an email' }, 400)
+    return c.json({ users: await admin.search(q) })
+  })
+
+  desk.post('/gifts', smallBody, async (c) => {
+    const body = await json(c)
+    const content = isRecord(body) ? parseAdminGift(body.content) : null
+    if (!isRecord(body) || typeof body.userId !== 'string' || typeof body.request !== 'string' || !content) {
+      return c.json({ error: 'expected { userId, content, request }' }, 400)
+    }
+    const outcome = await admin.send(c.var.userId, body.userId, content, body.request)
+    if (outcome === 'unknown' || outcome === 'bad request') return c.json({ error: outcome }, SEND_ERRORS[outcome])
+    return c.json({ sent: outcome === 'sent' })
+  })
+
+  desk.get('/gifts', async (c) => c.json({ gifts: await admin.recent() }))
+
+  desk.put('/suggestions/:id', smallBody, async (c) => {
+    const id = c.req.param('id')
+    const body = await json(c)
+    const status = isRecord(body) && isSuggestionStatus(body.status) ? body.status : null
+    if (!status) return c.json({ error: 'expected { status }' }, 400)
+    if (!SUGGESTION_ID.test(id) || !(await suggestions.setStatus(id, status))) return c.json({ error: 'unknown' }, 404)
+    console.log(`admin ${c.var.userId} set suggestion ${id} to ${status}`)
+    return c.json({ status })
+  })
+
+  app.route('/admin', desk)
 
   app.onError((err, c) => {
     console.error(err)

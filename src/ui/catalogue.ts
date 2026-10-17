@@ -1,69 +1,12 @@
 import type { Input } from '../engine/input'
 import { createRng } from '../engine/rng'
-import { PLAYABLE, PLAYABLE_IDS, type PlayableId } from '../data/hatchlings'
-import { generationOf } from '../data/catalogue'
-import { BANNERS, bannerPool, bannerRarity, bundleTickets, ownsPokemon, ownsShiny, PITY, pullGacha, tickets } from '../game/gacha'
-import { DIFFICULTY_IDS } from '../game/difficulty'
-import { t } from '../i18n'
+import { PLAYABLE } from '../data/hatchlings'
+import { BANNERS, bannerPool, bannerRarity, bundleTickets, PITY, pullGacha, tickets } from '../game/gacha'
 import { featureText } from '../i18n/features'
 import { portraitUrl } from '../render/sprites'
 import { h, later } from './dom'
-import { loadSave, updateSave, writeSave } from './save'
+import { loadSave, writeSave } from './save'
 import type { Screen } from './screens'
-import { inspectPanel } from './starterSelect'
-import { showcaseDex } from './showcase'
-
-export const catalogueSelect = (root: HTMLElement, input: Input, actions: { pick: (id: PlayableId) => void; incubator?: () => void; gacha?: () => void }, initial: PlayableId = 'charmander'): Screen & { selected: () => PlayableId } => {
-  const m = featureText()
-  let selected = initial, page = 0, stage = 0
-  let picking = false
-  const save = loadSave(), played = save.achievements.lifetime.starters
-  const confirm = () => { if (!picking && ownsPokemon(save, selected)) { picking = true; later(() => actions.pick(selected)) } }
-  const query = h('input', { type: 'search', placeholder: m.search, 'aria-label': m.search })
-  const region = h('select', { 'aria-label': m.all }, h('option', { value: '0' }, m.all), ...BANNERS.map((b, i) => h('option', { value: i + 1 }, b)))
-  const owned = h('input', { type: 'checkbox' })
-  const grid = h('div', { class: 'collection-grid' })
-  const detail = h('div', { class: 'collection-detail box' })
-  const count = h('span')
-  const showDetail = () => {
-    const p = PLAYABLE[selected]
-    const canPlay = ownsPokemon(save, selected)
-    const toggle = ownsShiny(save, selected) ? h('button', { class: 'btn', onclick: () => {
-      const current = loadSave().shinyStarters[selected] === true
-      updateSave((s) => ({ ...s, shinyStarters: { ...s.shinyStarters, [selected]: !current } }))
-      showDetail()
-    } }, loadSave().shinyStarters[selected] ? m.shiny : m.normal) : null
-    const shiny = loadSave().shinyStarters[selected] === true
-    // The same sheet as the region select: base and final stats, evolution line, special, Mega and every move with its description.
-    const sprite = h('img', { class: 'inspect-sprite collection-portrait', src: portraitUrl(p.line[stage]!.dex, shiny), alt: p.name })
-    detail.style.setProperty('--accent', p.color)
-    detail.replaceChildren(inspectPanel(selected, stage, (i) => { stage = i; showDetail() }, sprite, toggle),
-      h('button', { class: 'btn', onclick: () => canPlay ? confirm() : actions.gacha && later(actions.gacha) }, canPlay ? m.play : m.locked))
-  }
-  const redraw = () => {
-    const q = query.value.trim().toLowerCase()
-    const ids = PLAYABLE_IDS.filter((id) => {
-      const p = PLAYABLE[id]
-      return (!owned.checked || ownsPokemon(save, id)) && (!Number(region.value) || generationOf(p.line[0].dex) === Number(region.value)) && (!q || p.name.toLowerCase().includes(q) || String(p.line[0].dex) === q)
-    }).sort((a, b) => PLAYABLE[a].line[0].dex - PLAYABLE[b].line[0].dex)
-    const pages = Math.max(1, Math.ceil(ids.length / 60))
-    page = Math.min(page, pages - 1)
-    count.textContent = `${page + 1}/${pages} · ${ids.length}`
-    grid.replaceChildren(...ids.slice(page * 60, page * 60 + 60).map((id) => h('button', {
-      class: `collection-cell ${ownsPokemon(save, id) ? '' : 'locked'} ${selected === id ? 'selected' : ''}`,
-      title: PLAYABLE[id].name, onclick: () => { selected = id; stage = 0; redraw(); showDetail() },
-    }, h('img', { src: portraitUrl(showcaseDex(id, played)), alt: '', loading: 'lazy' }), h('span', {}, PLAYABLE[id].name), !ownsPokemon(save, id) && '🔒')))
-  }
-  query.oninput = region.onchange = owned.onchange = () => { page = 0; redraw() }
-  const difficulty = h('select', { 'aria-label': t().difficulty.names[save.difficulty] }, ...DIFFICULTY_IDS.map((id) => h('option', { value: id, selected: id === save.difficulty }, t().difficulty.names[id])))
-  difficulty.onchange = () => updateSave((s) => ({ ...s, difficulty: DIFFICULTY_IDS.find((id) => id === difficulty.value) ?? s.difficulty }))
-  const el = h('div', { class: 'screen feature-screen' }, h('div', { class: 'feature-panel box' }, h('h1', {}, m.collection),
-    h('div', { class: 'feature-tools' }, query, region, h('label', {}, owned, m.owned), difficulty, ...(actions.gacha ? [h('button', { class: 'btn', onclick: actions.gacha }, m.gacha)] : []), ...(actions.incubator ? [h('button', { class: 'btn', onclick: actions.incubator }, t().eggs.tab)] : [])),
-    h('div', { class: 'collection-layout' }, grid, detail), h('div', { class: 'buttons' }, h('button', { class: 'btn', onclick: () => { page = Math.max(0, page - 1); redraw() } }, '◀'), count, h('button', { class: 'btn', onclick: () => { page++; redraw() } }, '▶'))))
-  const off = input.onKey((key) => { if ((key === 'Enter' || key === 'Space') && document.activeElement?.tagName !== 'INPUT') confirm() })
-  root.append(el); redraw(); showDetail(); query.focus()
-  return { el, selected: () => selected, dispose: () => { off(); el.remove() } }
-}
 
 export const gachaScreen = (root: HTMLElement, input: Input, back: () => void): Screen => {
   const m = featureText()

@@ -10,6 +10,7 @@ import { mergeMissions } from './missions'
 import { mergeRibbons } from './ribbons'
 import { mergeShinyStarters } from './shinyStarters'
 import { mergeGacha } from './gacha'
+import { mergeShinyPicks } from './shinyPicks'
 
 /**
  * Account sync rules, shared by the game and the API (`server/`): how two
@@ -36,7 +37,7 @@ const worth = (s: Save) => s.wallet + totalSpent(s.ranks) + s.spent
  *   `worth`) wins, minus what the merged upgrades cost and the larger
  *   spending, so ₽ spent on one side and kept on the other isn't counted twice.
  * - The title: `incoming`'s, if it shows one.
- * - The difficulty picked last: `incoming`'s, a setting rather than progress.
+ * - The difficulty and the partner picked last: `incoming`'s, settings rather than progress.
  * - Shiny starters: a union; each Normal/Shiny pick is `incoming`'s when it has one.
  * - The bag: each item's got and used counters keep the larger side; what's
  *   armed is `incoming`'s. The daily counter: the most recent day, the most
@@ -44,6 +45,8 @@ const worth = (s: Save) => s.wallet + totalSpent(s.ranks) + s.spent
  * - Gift titles and the ids of the Mystery Gifts applied: unions, so a gift
  *   applied on either side never lands again.
  * - Ribbons: a union, one per day (the better one if both sides had that day).
+ * - Shiny picks: a union by ticket; a pick made on either side stays made.
+ * - The companion: `incoming`'s, if it has one (like the title).
  */
 export const mergeSaves = (base: Save, incoming: Save): Save => {
   const ranks: Ranks = Object.fromEntries(UPGRADE_IDS.map((id) => [id, Math.max(base.ranks[id], incoming.ranks[id])])) as Record<UpgradeId, number>
@@ -60,6 +63,7 @@ export const mergeSaves = (base: Save, incoming: Save): Save => {
     achievements: mergeAchievements(base.achievements, incoming.achievements),
     title: incoming.title ?? base.title,
     difficulty: incoming.difficulty,
+    partner: incoming.partner,
     shinyStarters: mergeShinyStarters(base.shinyStarters, incoming.shinyStarters),
     bag: mergeBag(base.bag, incoming.bag),
     counter: mergeCounter(base.counter, incoming.counter),
@@ -68,6 +72,8 @@ export const mergeSaves = (base: Save, incoming: Save): Save => {
     titles: mergeGiftTitles(base.titles, incoming.titles),
     gifts: mergeClaimedGifts(base.gifts, incoming.gifts),
     ribbons: mergeRibbons(base.ribbons, incoming.ribbons),
+    shinyPicks: mergeShinyPicks(base.shinyPicks, incoming.shinyPicks),
+    companion: incoming.companion ?? base.companion,
   }
 }
 
