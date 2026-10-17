@@ -156,7 +156,15 @@ export const missionsScreen = (root: HTMLElement, input: Input, onClose: () => v
   const tabs = { missions: h('button', { class: 'tab' }, m.tab), achievements: h('button', { class: 'tab' }, a.tab) } as const
   const list = h('div', { class: 'missions-list' })
   const back = h('button', { class: 'btn' }, m.back)
-  const close = () => later(onClose)
+  let closed = false
+  /** Closing removes this screen itself: opened over the Trainer Card, nothing else would. */
+  const close = () => {
+    if (closed) return
+    closed = true
+    off()
+    el.remove()
+    later(onClose)
+  }
 
   const missionsTab = () => {
     resets.length = 0
