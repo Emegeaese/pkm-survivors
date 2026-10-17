@@ -5833,3 +5833,17 @@ a.btn.dex-site {
 .invite-chip { display: inline-flex; align-items: center; gap: 8px; padding: 6px 10px; background: #243556; border: 2px solid #4a6190; border-radius: 16px; }
 .invite-chip .btn { min-height: 34px; padding: 4px 14px 4px 18px; color: var(--ink); }
 .invite-row { flex-direction: column; align-items: flex-start; }
+
+/* ---- A gamepad in use (data-input="pad", see ui/inputLabels.ts): its hints replace the keyboard and touch ones ---- */
+.pad-only { display: none; }
+:root[data-input='pad'] .pad-only { display: inline; }
+:root[data-input='pad'] :is(.keys-only, .touch-only, .key-hint, .offer-key, .move-pad) { display: none; }
+/* ← and → as the font's ↑ turned: the font has no sideways arrows (see glyphText). */
+.side-arrow { display: inline-block; line-height: 1; transform: rotate(90deg); }
+.side-arrow.left { transform: rotate(-90deg); }
+/* PlayStation's ✕ ○ □ △: a 10 px icon around an 8 px glyph. */
+.pad-glyph { height: 1.25em; vertical-align: -0.2em; image-rendering: pixelated; }
+/* The gamepads the browser shows the game, or how to make one appear. */
+.controls-pad { margin: 0 0 8px; font-size: 18px; line-height: 1.2; color: #2f8a4a; }
+.controls-pad.missing { color: #b8562a; }
+@media (hover: none) and (pointer: coarse) { .controls-pad.missing { display: none; } }
