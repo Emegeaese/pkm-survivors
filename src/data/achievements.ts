@@ -39,31 +39,31 @@ const region = (gen: number) => ({ medal: 'silver', stat: 'region', gen }) as co
 /** In list order: from first steps to feats. */
 export const ACHIEVEMENTS = {
   coopFirst: { medal: 'bronze', stat: 'coopRuns', target: 1 },
-  coopChampion: { medal: 'silver', stat: 'coopWins', target: 5 },
-  coopRescuer: { medal: 'silver', stat: 'coopRevivals', target: 10 },
+  coopChampion: { medal: 'silver', stat: 'coopWins', target: 5, title: true },
+  coopRescuer: { medal: 'silver', stat: 'coopRevivals', target: 10, title: true },
   versusFirst: { medal: 'bronze', stat: 'versusRuns', target: 1 },
-  versusChampion: { medal: 'silver', stat: 'versusWins', target: 10 },
-  versusVeteran: { medal: 'gold', stat: 'versusRuns', target: 50 },
+  versusChampion: { medal: 'silver', stat: 'versusWins', target: 10, title: true },
+  versusVeteran: { medal: 'gold', stat: 'versusRuns', target: 50, title: true },
   firstRun: { medal: 'bronze', stat: 'runs', target: 1 },
-  regular: { medal: 'silver', stat: 'runs', target: 25 },
+  regular: { medal: 'silver', stat: 'runs', target: 25, title: true },
   veteran: { medal: 'gold', stat: 'runs', target: 100, title: true },
   kills1k: { medal: 'bronze', stat: 'kills', target: 1000 },
-  kills10k: { medal: 'silver', stat: 'kills', target: 10_000 },
+  kills10k: { medal: 'silver', stat: 'kills', target: 10_000, title: true },
   kills100k: { medal: 'gold', stat: 'kills', target: 100_000, title: true },
   survive5: { medal: 'bronze', stat: 'bestMinutes', target: 5 },
   survive10: { medal: 'bronze', stat: 'bestMinutes', target: 10 },
   finalForm: { medal: 'bronze', stat: 'finalStages', target: 1 },
   level30: { medal: 'bronze', stat: 'bestLevel', target: 30 },
-  level50: { medal: 'silver', stat: 'bestLevel', target: 50 },
+  level50: { medal: 'silver', stat: 'bestLevel', target: 50, title: true },
   moveEvo: { medal: 'bronze', stat: 'moveEvolutions', target: 1 },
   moveEvo50: { medal: 'silver', stat: 'moveEvolutions', target: 50 },
   boss10: { medal: 'bronze', stat: 'bossKills', target: 10 },
-  boss100: { medal: 'silver', stat: 'bossKills', target: 100 },
+  boss100: { medal: 'silver', stat: 'bossKills', target: 100, title: true },
   chests10: { medal: 'bronze', stat: 'chests', target: 10 },
   meowths5: { medal: 'bronze', stat: 'meowths', target: 5 },
   altars25: { medal: 'bronze', stat: 'altars', target: 25 },
   coins10k: { medal: 'bronze', stat: 'coins', target: 10_000 },
-  coins100k: { medal: 'silver', stat: 'coins', target: 100_000 },
+  coins100k: { medal: 'silver', stat: 'coins', target: 100_000, title: true },
   coins1m: { medal: 'gold', stat: 'coins', target: 1_000_000, title: true },
   starters9: { medal: 'bronze', stat: 'starters', target: 9 },
   starters27: { medal: 'silver', stat: 'starters', target: 27, title: true },
@@ -73,21 +73,21 @@ export const ACHIEVEMENTS = {
   shiny10: { medal: 'silver', stat: 'shinyKills', target: 10 },
   shiny50: { medal: 'gold', stat: 'shinyKills', target: 50, title: true },
   shinyStarter: { medal: 'silver', stat: 'shinyStarters', target: 1, title: true },
-  dex100: { medal: 'silver', stat: 'dexSeen', target: 100 },
+  dex100: { medal: 'silver', stat: 'dexSeen', target: 100, title: true },
   /** Every form of the 27 starter lines caught, i.e. each one taken to its final evolution. */
   starterLines: { medal: 'gold', stat: 'starterLines', target: 81, title: true },
   firstHatch: { medal: 'bronze', stat: 'hatches', target: 1 },
   shinyHatch: { medal: 'gold', stat: 'shinyHatches', target: 1, title: true },
   rift1: { medal: 'bronze', stat: 'rifts', target: 1 },
-  rift25: { medal: 'silver', stat: 'rifts', target: 25 },
+  rift25: { medal: 'silver', stat: 'rifts', target: 25, title: true },
   mega1: { medal: 'bronze', stat: 'megas', target: 1 },
-  mega25: { medal: 'silver', stat: 'megas', target: 25 },
+  mega25: { medal: 'silver', stat: 'megas', target: 25, title: true },
   /** Every rift legendary beaten at least once (unlocked ones stay unlocked when the list grows). */
   legends: { medal: 'gold', stat: 'legends', target: RIFT_LEGENDS.length, title: true },
-  shinyLegend: { medal: 'gold', stat: 'shinyLegends', target: 1 },
+  shinyLegend: { medal: 'gold', stat: 'shinyLegends', target: 1, title: true },
   champion: { medal: 'silver', stat: 'wins', target: 1, title: true },
-  wins10: { medal: 'gold', stat: 'wins', target: 10 },
-  trio: { medal: 'silver', stat: 'trio', target: 3 },
+  wins10: { medal: 'gold', stat: 'wins', target: 10, title: true },
+  trio: { medal: 'silver', stat: 'trio', target: 3, title: true },
   kanto: region(1),
   johto: region(2),
   hoenn: region(3),
@@ -99,7 +99,7 @@ export const ACHIEVEMENTS = {
   paldea: region(9),
   regions: { medal: 'gold', stat: 'regions', target: 9, title: true },
   endless: { medal: 'silver', stat: 'overtimeMinutes', target: 1 },
-  reaperSurvivor: { medal: 'gold', stat: 'overtimeMinutes', target: 10 },
+  reaperSurvivor: { medal: 'gold', stat: 'overtimeMinutes', target: 10, title: true },
   reaperDown: { medal: 'gold', stat: 'reaperDefeats', target: 1, title: true },
 } as const satisfies Record<string, AchievementDef>
 
@@ -110,8 +110,15 @@ export const ACHIEVEMENT_IDS = Object.keys(ACHIEVEMENTS) as AchievementId[]
 /** Achievements that grant a title. */
 export type MedalTitleId = { [K in AchievementId]: (typeof ACHIEVEMENTS)[K] extends { title: true } ? K : never }[AchievementId]
 
-/** Titles that only come as a Mystery Gift (`game/gifts.ts`), kept in the save's `titles`. */
-export const GIFT_TITLES = ['ambassador'] as const
+/** Titles sold at the Poké Mart, with their price in ₽ (kept in the save's `titles` once bought). */
+export const SHOP_TITLES = { rookie: 500, explorer: 800, breeder: 1000, collector: 1200, ranger: 1500, gymLeader: 2500, eliteFour: 4000, ace: 6000 } as const satisfies Record<string, number>
+
+export type ShopTitleId = keyof typeof SHOP_TITLES
+
+export const SHOP_TITLE_IDS = Object.keys(SHOP_TITLES) as ShopTitleId[]
+
+/** Titles that come as a Mystery Gift (`game/gifts.ts`) or from the Poké Mart, kept in the save's `titles`. */
+export const GIFT_TITLES = ['ambassador', ...SHOP_TITLE_IDS] as const
 
 export type GiftTitleId = (typeof GIFT_TITLES)[number]
 

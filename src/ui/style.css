@@ -5613,3 +5613,55 @@ a.btn.dex-site {
   .invite-banner img { width: 22px; height: 26px; }
   .online-count { margin: 0; }
 }
+
+/* ---- Title footer: in the flow below the menu, so it can never paint over the buttons ---- */
+.title-home .title-footer { position: static; flex: 0 0 auto; width: 100%; margin-top: auto; padding: 8px 12px 0; }
+.title-home { padding-bottom: max(8px, var(--safe-b)); }
+@media (max-height: 500px) and (orientation: landscape) {
+  .title-home { flex-wrap: wrap; align-content: center; padding-bottom: max(6px, var(--safe-b)); }
+  .title-home .title-footer { flex-basis: 100%; margin-top: 0; padding-top: 4px; }
+}
+
+/* ---- Online count: its line is always reserved, so the banner under it never jumps when it arrives ---- */
+.online-count { min-height: 22px; }
+.online-count:empty::before { display: none; }
+
+/* ---- Profile: the action buttons stay put at the bottom of the dialog, whatever loads above ---- */
+.dialog.profile > .buttons { position: sticky; bottom: 0; z-index: 2; padding: 14px 0 6px; margin: 0; background: linear-gradient(transparent, var(--paper) 12px); }
+.dialog.profile > .hint { position: static; }
+
+/* ---- Profile editor: title chips ---- */
+.title-list { display: flex; flex-wrap: wrap; gap: 6px; }
+.title-chip { padding: 6px 10px; font: inherit; font-size: 16px; color: var(--ink); background: #fff; border: 2px solid #c4cce0; border-radius: 16px; cursor: pointer; }
+.title-chip.selected { border-color: #e83838; background: #fff4d0; }
+
+/* ---- Poké Mart: richer rows, a big detail card beside the list on wide screens, title badges ---- */
+.mart-effect { font-size: 16px; line-height: 1.05; color: #4a5a85; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mart-title-badge { display: grid; place-items: center; width: 28px; height: 28px; font-size: 18px; color: #f8d030; background: #283048; border-radius: 50%; }
+.mart-title-badge.big { width: 40px; height: 40px; font-size: 26px; }
+.mart-tabs .tab { font-size: 10px; }
+.mart-row { min-height: 50px; }
+.mart-row.poor { opacity: .78; }
+.mart-row:not(.poor):not(.maxed) .mart-price { color: #1f7a2a; }
+.mart-wallet { font-size: 14px; padding: 8px 12px; box-shadow: inset 0 0 0 2px #f8d03055; }
+@media (min-width: 860px) and (min-height: 540px) {
+  .dialog.mart { width: min(940px, 100%); display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(300px, 1fr); grid-template-areas: 'head head' 'tabs tabs' 'intro intro' 'list desc' 'btns desc' 'hint hint'; gap: 10px 16px; align-items: stretch; }
+  .dialog.mart > .mart-head { grid-area: head; }
+  .dialog.mart > .mart-tabs { grid-area: tabs; }
+  .dialog.mart > .mart-intro { grid-area: intro; }
+  .dialog.mart > .mart-list { grid-area: list; max-height: min(52vh, 460px); }
+  .dialog.mart > .buttons { grid-area: btns; }
+  .dialog.mart > .hint { grid-area: hint; }
+  .dialog.mart > .mart-desc { grid-area: desc; flex-direction: column; align-items: stretch; justify-content: flex-start; gap: 14px; padding: 18px; align-self: start; }
+  .mart-desc-icon { width: 88px; height: 88px; align-self: center; }
+  .mart-desc-icon img { width: 72px; height: 72px; image-rendering: pixelated; }
+  .mart-desc-icon.wide { width: 110px; height: 130px; }
+  .mart-desc-title { font-size: 12px; line-height: 1.5; text-align: center; }
+  .mart-desc-body p { font-size: 22px; line-height: 1.1; text-align: center; margin-top: 8px; }
+  .mart-buy { width: 100%; }
+  .mart-title-badge.big { width: 72px; height: 72px; font-size: 44px; }
+  .mart-tile.big { width: 72px; height: 72px; }
+}
+@media (max-width: 859px) { .mart-effect { display: none; } }
+@media (min-width: 860px) and (min-height: 540px) { .dialog.mart > .buttons { align-self: start; } }
+.dialog.profile > .buttons { background: var(--paper); border-top: 2px solid #c4cce0; padding: 10px 0 6px; }

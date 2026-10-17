@@ -18,7 +18,7 @@ export const fetchBoard = (f: BoardFilter): Promise<Board | null> => firebaseBoa
 export const fetchChallengeBoard = (day: DayKey, _friends = false): Promise<ChallengeBoard | null> => firebaseChallengeBoard(day)
 /** Dev builds only: `?u=demo` opens a made-up profile, to look at the layout without an account. */
 const demoProfile = (): PublicProfile => ({
-  handle: 'demo', name: 'Ash Ketchum', title: null, self: true, followers: 0, following: 0, followed: false, brought: 2,
+  handle: 'demo', name: 'Ash Ketchum', title: 'veteran', self: true, followers: 0, following: 0, followed: false, brought: 2,
   photo: 'charmander', wall: 'forest', favs: ['charmander', 'squirtle', 'bulbasaur'], friends: [],
   dex: { seen: 120, caught: 64 },
   records: { normal: { starter: 'charmander', stage: 2, difficulty: 'normal', time: 1260, outcome: 'victory', at: '2026-10-10T12:00:00Z', verified: true } },

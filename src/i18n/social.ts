@@ -10,7 +10,7 @@ const es = {
   online: (n: number) => n === 1 ? '1 entrenador en línea' : `${n} entrenadores en línea`, friendsOf: (n: number) => n === 1 ? '1 amigo' : `${n} amigos`, noFriendsYet: 'Aún no tiene amigos.', addFriend: 'Añadir amigo', requested: 'Solicitud enviada',
   background: 'Fondo del perfil', noBackground: 'Sin fondo', searchPokemon: 'Buscar Pokémon…', pickBackground: 'Elige un Pokémon para el fondo de tu perfil.', more: (n: number) => `y ${n} más`,
   onlineStats: 'Cooperativo y versus', matchHistory: 'Historial de partidas', historyRuns: 'Partidas', historyWins: 'Victorias', historyBest: 'Mejor tiempo', historyAverage: 'Tiempo medio', favorites: 'Pokémon favoritos', mostUsed: 'Pokémon más usados',
-  photo: 'Foto de perfil', wallpaper: 'Fondo del perfil', favoritesPick: 'Favoritos (hasta 3; sin elegir se muestran los más usados)', clear: 'Quitar', wallpaperNote: 'Los fondos se compran en la tienda Pokémon.', lookNote: 'Solo puedes elegir Pokémon que ya tienes.',
+  titleLabel: 'Título del perfil', noTitle: 'Sin título', titleNote: 'Los títulos se desbloquean con logros y regalos.', photo: 'Foto de perfil', wallpaper: 'Fondo del perfil', favoritesPick: 'Favoritos (hasta 3; sin elegir se muestran los más usados)', clear: 'Quitar', wallpaperNote: 'Los fondos se compran en la tienda Pokémon.', lookNote: 'Solo puedes elegir Pokémon que ya tienes.',
 }
 const en: typeof es = {
   friends: 'Friends', handle: 'Trainer handle (@username)', add: 'Add friend', sent: 'Request sent', missing: 'Trainer not found, or this is your own account.',
@@ -23,7 +23,7 @@ const en: typeof es = {
   online: (n: number) => n === 1 ? '1 trainer online' : `${n} trainers online`, friendsOf: (n: number) => n === 1 ? '1 friend' : `${n} friends`, noFriendsYet: 'No friends yet.', addFriend: 'Add friend', requested: 'Request sent',
   background: 'Profile background', noBackground: 'No background', searchPokemon: 'Search Pokémon…', pickBackground: 'Pick a Pokémon for your profile background.', more: (n: number) => `and ${n} more`,
   onlineStats: 'Co-op and versus', matchHistory: 'Match history', historyRuns: 'Matches', historyWins: 'Wins', historyBest: 'Best time', historyAverage: 'Average time', favorites: 'Favorite Pokémon', mostUsed: 'Most used Pokémon',
-  photo: 'Profile photo', wallpaper: 'Profile background', favoritesPick: 'Favorites (up to 3; if none, your most used are shown)', clear: 'Clear', wallpaperNote: 'Backgrounds are bought in the Pokémon Mart.', lookNote: 'You can only pick Pokémon you own.',
+  titleLabel: 'Profile title', noTitle: 'No title', titleNote: 'Titles unlock with achievements and gifts.', photo: 'Profile photo', wallpaper: 'Profile background', favoritesPick: 'Favorites (up to 3; if none, your most used are shown)', clear: 'Clear', wallpaperNote: 'Backgrounds are bought in the Pokémon Mart.', lookNote: 'You can only pick Pokémon you own.',
 }
 const pt: typeof es = {
   friends: 'Amigos', handle: 'Apelido do treinador (@usuário)', add: 'Adicionar amigo', sent: 'Pedido enviado', missing: 'Treinador não encontrado ou esta é sua conta.',
@@ -36,6 +36,6 @@ const pt: typeof es = {
   online: (n: number) => n === 1 ? '1 treinador online' : `${n} treinadores online`, friendsOf: (n: number) => n === 1 ? '1 amigo' : `${n} amigos`, noFriendsYet: 'Ainda sem amigos.', addFriend: 'Adicionar amigo', requested: 'Pedido enviado',
   background: 'Fundo do perfil', noBackground: 'Sem fundo', searchPokemon: 'Buscar Pokémon…', pickBackground: 'Escolha um Pokémon para o fundo do perfil.', more: (n: number) => `e mais ${n}`,
   onlineStats: 'Cooperativo e versus', matchHistory: 'Histórico de partidas', historyRuns: 'Partidas', historyWins: 'Vitórias', historyBest: 'Melhor tempo', historyAverage: 'Tempo médio', favorites: 'Pokémon favoritos', mostUsed: 'Pokémon mais usados',
-  photo: 'Foto do perfil', wallpaper: 'Fundo do perfil', favoritesPick: 'Favoritos (até 3; sem escolha, mostramos os mais usados)', clear: 'Limpar', wallpaperNote: 'Os fundos são comprados na loja Pokémon.', lookNote: 'Você só pode escolher Pokémon que já tem.',
+  titleLabel: 'Título do perfil', noTitle: 'Sem título', titleNote: 'Os títulos são desbloqueados com conquistas e presentes.', photo: 'Foto do perfil', wallpaper: 'Fundo do perfil', favoritesPick: 'Favoritos (até 3; sem escolha, mostramos os mais usados)', clear: 'Limpar', wallpaperNote: 'Os fundos são comprados na loja Pokémon.', lookNote: 'Você só pode escolher Pokémon que já tem.',
 }
 export const socialText = () => locale() === 'es' ? es : locale() === 'pt' ? pt : en

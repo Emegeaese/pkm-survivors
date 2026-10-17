@@ -1,11 +1,12 @@
 import { playSfx } from '../engine/audio'
 import type { Input } from '../engine/input'
 import { formatNumber, formatPokeDollars, t } from '../i18n'
+import { SHOP_TITLE_IDS, SHOP_TITLES } from '../data/achievements'
 import { STYLE_SLOTS, styleIds, stylePrice, type StyleId, type StyleSlot } from '../data/style'
 import { BAG_ITEMS, bagCount } from '../game/bag'
 import { msToNextDay } from '../game/day'
 import { EGG_TIERS } from '../game/eggs'
-import { buyFromCounter, buyStyle, COUNTER, counterBlock, counterPrice, stockLeft, type Counter, type CounterSlot } from '../game/mart'
+import { buyFromCounter, buyStyle, buyTitle, COUNTER, counterBlock, counterPrice, stockLeft, type Counter, type CounterSlot } from '../game/mart'
 import { buyUpgrade, refundAll, totalSpent, UPGRADE_IDS, UPGRADES, upgradePrice, type Save } from '../game/meta'
 import { equipStyle, ownsStyle } from '../game/style'
 import { bagIcon, coinIcon, eggIcon, upgradeIcon } from '../render/art'
@@ -48,7 +49,7 @@ const confirmDialog = (root: HTMLElement, input: Input, text: string, onAnswer: 
 
 /* ---------------- Shelves ---------------- */
 
-const SHELVES = ['upgrades', 'counter', 'style'] as const
+const SHELVES = ['upgrades', 'counter', 'style', 'titles'] as const
 
 type Shelf = (typeof SHELVES)[number]
 
@@ -60,11 +61,11 @@ type Row = { el: HTMLButtonElement; refresh: (save: Save) => void; describe: (sa
 
 const icon = (src: string, cls = '') => h('img', { src, alt: '', class: cls })
 
-/** A row's frame: icon, name with a line under it, and the price (or status) on the right. */
-const rowShell = (picture: HTMLElement, name: string) => {
+/** A row's frame: icon, name with a line under it (and a short effect on wide screens), and the price (or status) on the right. */
+const rowShell = (picture: HTMLElement, name: string, effect = '') => {
   const sub = h('span', { class: 'mart-sub' })
   const price = h('span', { class: 'mart-price' })
-  const el = h('button', { class: 'mart-row' }, picture, h('span', { class: 'mart-info' }, h('span', { class: 'mart-name' }, name), sub), price)
+  const el = h('button', { class: 'mart-row' }, picture, h('span', { class: 'mart-info' }, h('span', { class: 'mart-name' }, name), sub, effect && h('span', { class: 'mart-effect' }, effect)), price)
   return { el, sub, price }
 }
 
@@ -72,7 +73,7 @@ const rowShell = (picture: HTMLElement, name: string) => {
 const upgradeRows = (): Row[] =>
   UPGRADE_IDS.map((id) => {
     const def = UPGRADES[id]
-    const { el, sub, price } = rowShell(icon(upgradeIcon(id)), def.name)
+    const { el, sub, price } = rowShell(icon(upgradeIcon(id)), def.name, t().upgrades[id])
     sub.classList.add('pips')
     return {
       el,
@@ -112,7 +113,7 @@ const counterItem = (counter: Counter, slot: CounterSlot) => {
 const counterRows = (counter: Counter): Row[] =>
   (['lure', 'incense', 'egg'] as const).map((slot) => {
     const item = counterItem(counter, slot)
-    const { el, sub, price } = rowShell(icon(item.src), item.name)
+    const { el, sub, price } = rowShell(icon(item.src), item.name, item.text)
     const onSale = counter.sale === slot
     if (onSale) el.classList.add('on-sale')
     const priceTag = () => formatPokeDollars(counterPrice(counter, slot))
@@ -165,7 +166,7 @@ const styleRows = (slot: StyleSlot): Row[] =>
     if (listed === null && !ownsStyle(loadSave().style, slot, id)) return []
     const price = listed ?? 0
     const name = (t().mart.styles[slot] as Readonly<Record<string, string>>)[id] ?? id
-    const shell = rowShell(stylePicture(slot, id, false), name)
+    const shell = rowShell(stylePicture(slot, id, false), name, t().mart.styleDescriptions[slot])
     const status = (save: Save) => {
       if (save.style.equipped[slot] === id) return t().mart.equipped
       return ownsStyle(save.style, slot, id) ? t().mart.owned : formatPokeDollars(price)
@@ -198,6 +199,31 @@ const styleRows = (slot: StyleSlot): Row[] =>
         },
       },
     ]
+  })
+
+/** The titles shelf: sold once, then worn from the profile (and on the cards); an owned one is only worn. */
+const titleRows = (): Row[] =>
+  SHOP_TITLE_IDS.map((id) => {
+    const name = t().achievements.titles[id], price = SHOP_TITLES[id]
+    const badge = h('span', { class: 'mart-title-badge', 'aria-hidden': 'true' }, '★')
+    const shell = rowShell(badge, name)
+    const owned = (save: Save) => save.titles.includes(id)
+    return {
+      el: shell.el,
+      refresh: (save) => {
+        setText(shell.price, save.title === id ? t().mart.equipped : owned(save) ? t().mart.owned : formatPokeDollars(price))
+        shell.el.classList.toggle('maxed', save.title === id)
+        shell.el.classList.toggle('poor', !owned(save) && price > save.wallet)
+      },
+      describe: (save) => ({
+        icon: h('span', { class: 'mart-title-badge big', 'aria-hidden': 'true' }, '★'),
+        title: name,
+        text: t().mart.titleDescription,
+        action: save.title === id ? t().mart.equipped : owned(save) ? t().mart.equip : t().mart.buy(formatPokeDollars(price)),
+        disabled: save.title === id || (!owned(save) && price > save.wallet),
+      }),
+      act: (save) => (save.title === id ? null : owned(save) ? { ...save, title: id } : buyTitle(save, id)),
+    }
   })
 
 /** "5h 12min": time left until the counter restocks. */
@@ -271,7 +297,7 @@ export const shop = (root: HTMLElement, input: Input, onClose: () => void): Scre
       tab.setAttribute('aria-selected', String(SHELVES[i] === shelf))
     })
     refund.classList.toggle('hidden', shelf !== 'upgrades')
-    intro.classList.toggle('hidden', shelf !== 'counter')
+    intro.classList.toggle('hidden', shelf !== 'counter' && shelf !== 'titles')
     if (shelf === 'upgrades') {
       rows = upgradeRows()
       list.replaceChildren(...rows.map((r) => r.el))
@@ -279,6 +305,10 @@ export const shop = (root: HTMLElement, input: Input, onClose: () => void): Scre
       counter = counterToday()
       setText(intro, m.counterIntro(restocksIn()))
       rows = counterRows(counter)
+      list.replaceChildren(...rows.map((r) => r.el))
+    } else if (shelf === 'titles') {
+      setText(intro, m.titleDescription)
+      rows = titleRows()
       list.replaceChildren(...rows.map((r) => r.el))
     } else {
       const groups = STYLE_SLOTS.map((slot) => ({ slot, rows: styleRows(slot) }))

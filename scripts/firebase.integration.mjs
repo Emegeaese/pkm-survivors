@@ -132,10 +132,11 @@ test('unique handles and profile ownership', async () => {
 test('profile look (photo, wallpaper, favourites) and published friends are owner-only and validated', async () => {
   const owner = db('profile-owner'), other = db('profile-other'), ref = (c) => doc(c, 'pkmProfiles/profile-owner')
   const base = { uid: 'profile-owner', handle: 'ash', name: 'Ash', updatedAt: serverTimestamp() }
-  await assertSucceeds(setDoc(ref(owner), { ...base, photo: 'pikachu', wall: 'forest', favs: ['pikachu', 'eevee'], friends: ['friend-b'] }))
+  await assertSucceeds(setDoc(ref(owner), { ...base, photo: 'pikachu', wall: 'forest', favs: ['pikachu', 'eevee'], title: 'veteran', friends: ['friend-b'] }))
   await assertFails(setDoc(ref(owner), { ...base, photo: 25 }))
   await assertFails(setDoc(ref(owner), { ...base, favs: ['a', 'b', 'c', 'd'] }))
   await assertFails(setDoc(ref(owner), { ...base, bg: 25 }))
+  await assertFails(setDoc(ref(owner), { ...base, title: 'x'.repeat(30) }))
   await assertFails(setDoc(ref(owner), { ...base, friends: 'friend-b' }))
   await assertFails(setDoc(ref(owner), { ...base, rank: 1 }))
   await assertFails(setDoc(ref(other), { ...base, photo: 'pikachu' }))

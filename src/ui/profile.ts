@@ -6,6 +6,7 @@ import type { Input } from '../engine/input'
 import { formatTime } from '../engine/math'
 import { PLAYABLE, PLAYABLE_IDS, type PlayableId } from '../data/hatchlings'
 import { styleIds, type WallpaperId } from '../data/style'
+import { MEDAL_TITLE_IDS, type TitleId } from '../data/achievements'
 import { ownsPokemon } from '../game/gacha'
 import { ownsStyle } from '../game/style'
 import { wallpaperUrl } from '../render/cosmetics'
@@ -310,8 +311,11 @@ export const profileEditor = (root: HTMLElement, input: Input, onClose: (saved: 
   const so = socialText(), mine = loadSave()
   const owned = PLAYABLE_IDS.filter((id) => ownsPokemon(mine, id)).sort((x, y) => PLAYABLE[x].line[0].dex - PLAYABLE[y].line[0].dex)
   const walls = styleIds('wallpaper').filter((id) => ownsStyle(mine.style, 'wallpaper', id))
-  let photo: PlayableId | null = null, wall: WallpaperId | null = null, favs: PlayableId[] = [], touched = false, loaded = !known
+  const { unlocked } = mine.achievements
+  const titles: TitleId[] = [...mine.titles, ...MEDAL_TITLE_IDS.filter((id) => unlocked.includes(id))]
+  let photo: PlayableId | null = null, wall: WallpaperId | null = null, favs: PlayableId[] = [], title: TitleId | null = null, touched = false, loaded = !known
   const search = h('input', { class: 'field-input look-search', type: 'search', placeholder: so.searchPokemon, 'aria-label': so.searchPokemon, autocomplete: 'off', spellcheck: 'false' })
+  const titleList = h('div', { class: 'title-list' })
   const photoGrid = h('div', { class: 'bg-grid' }), favGrid = h('div', { class: 'bg-grid' }), wallGrid = h('div', { class: 'wall-grid' })
   const cell = (id: PlayableId, on: boolean, pick: () => void) =>
     h('button', { class: on ? 'bg-cell selected' : 'bg-cell', type: 'button', title: finalForm(id).name, 'aria-label': finalForm(id).name, 'aria-pressed': String(on), onclick: () => { if (!loaded) return; touched = true; pick(); renderLook() } },
@@ -321,10 +325,13 @@ export const profileEditor = (root: HTMLElement, input: Input, onClose: (saved: 
     const list = owned.filter((id) => !q || PLAYABLE[id].line.some((form) => form.name.toLowerCase().includes(q)) || String(PLAYABLE[id].line[0].dex) === q).slice(0, 90)
     photoGrid.replaceChildren(...list.map((id) => cell(id, photo === id, () => { photo = photo === id ? null : id })))
     favGrid.replaceChildren(...list.map((id) => cell(id, favs.includes(id), () => { favs = favs.includes(id) ? favs.filter((x) => x !== id) : [...favs, id].slice(-3) })))
+    titleList.replaceChildren(
+      h('button', { class: title === null ? 'title-chip selected' : 'title-chip', type: 'button', onclick: () => { if (!loaded) return; touched = true; title = null; renderLook() } }, so.noTitle),
+      ...titles.map((id) => h('button', { class: title === id ? 'title-chip selected' : 'title-chip', type: 'button', onclick: () => { if (!loaded) return; touched = true; title = id; renderLook() } }, t().achievements.titles[id])))
     wallGrid.replaceChildren(...walls.map((id) => h('button', { class: (wall ?? 'classic') === id ? 'wall-cell selected' : 'wall-cell', type: 'button', style: `--wallpaper:url(${wallpaperUrl(id)})`, 'aria-label': t().mart.styles.wallpaper[id], onclick: () => { if (!loaded) return; touched = true; wall = id === 'classic' ? null : id; renderLook() } }, h('span', {}, t().mart.styles.wallpaper[id]))))
   }
   search.addEventListener('input', renderLook)
-  if (known) void fetchProfile(known).then((p) => { if (p && p !== 'missing' && !touched) { photo = p.photo ?? null; wall = p.wall ?? null; favs = p.favs ?? []; renderLook() } }).finally(() => { loaded = true })
+  if (known) void fetchProfile(known).then((p) => { if (p && p !== 'missing' && !touched) { photo = p.photo ?? null; wall = p.wall ?? null; favs = p.favs ?? []; title = p.title; renderLook() } }).finally(() => { loaded = true })
   renderLook()
 
   const setMessage = (text: string, error = false) => {
@@ -365,7 +372,7 @@ export const profileEditor = (root: HTMLElement, input: Input, onClose: (saved: 
     save.textContent = m.save
     if (closed) return
     if (result.ok) {
-      if (touched) await setProfileLook({ photo, wall, favs: favs.length ? favs : null }).catch(() => false)
+      if (touched) await setProfileLook({ photo, wall, favs: favs.length ? favs : null, title }).catch(() => false)
       return (playSfx('unlock'), close(true))
     }
     playSfx('hurt')
@@ -388,6 +395,7 @@ export const profileEditor = (root: HTMLElement, input: Input, onClose: (saved: 
     field(m.handle, handleInput, '@'),
     message,
     suggestion,
+    h('div', { class: 'field' }, h('span', { class: 'field-label' }, so.titleLabel), titleList, h('small', { class: 'profile-note small' }, so.titleNote)),
     h('div', { class: 'field' }, h('span', { class: 'field-label' }, so.photo), search, photoGrid),
     h('div', { class: 'field' }, h('span', { class: 'field-label' }, so.favoritesPick), favGrid),
     h('div', { class: 'field' }, h('span', { class: 'field-label' }, so.wallpaper), wallGrid, h('small', { class: 'profile-note small' }, so.wallpaperNote)),

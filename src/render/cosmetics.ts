@@ -64,7 +64,33 @@ export const DEFAULT_CARD_STYLE: CardStyle = { frame: 'classic', background: 'ni
 /** A Caixa do PC wallpaper: a 16×16 tile in pixel strings and its palette. */
 export type Wallpaper = { tile: readonly string[]; palette: Readonly<Record<string, string>> }
 
+/** Builds a 16×16 tile from a function of the cell. */
+const tile16 = (cell: (x: number, y: number) => string) => Array.from({ length: 16 }, (_, y) => Array.from({ length: 16 }, (_, x) => cell(x, y)).join(''))
+
 export const PC_WALLPAPERS = {
+  /** Rolling waves with white caps, like a beach route. */
+  beach: {
+    tile: tile16((x, y) => { const wave = (x + (y % 8 < 4 ? y % 8 : 8 - (y % 8))) % 8; return y % 8 === 3 && wave < 2 ? '3' : wave < 3 ? '2' : '1' }),
+    palette: { 1: '#3c78c8', 2: '#4c8ad8', 3: '#d8ecf8' },
+  },
+  /** Little flowers on grass. */
+  meadow: {
+    tile: tile16((x, y) => {
+      const flower = (cx: number, cy: number) => (x === cx && y === cy ? '4' : (Math.abs(x - cx) + Math.abs(y - cy) === 1 ? '3' : ''))
+      return flower(4, 4) || flower(12, 11) || ((x * 7 + y * 5) % 23 === 0 ? '2' : '1')
+    }),
+    palette: { 1: '#58a848', 2: '#68b858', 3: '#f8f8f8', 4: '#f8d030' },
+  },
+  /** Embers on dark rock, like the Cinnabar volcano. */
+  volcano: {
+    tile: tile16((x, y) => ((x + y * 2) % 11 === 0 ? '3' : (x * 3 + y) % 13 === 0 ? '2' : '1')),
+    palette: { 1: '#582820', 2: '#8a3a28', 3: '#f08838' },
+  },
+  /** Zigzag bolts on yellow, like Pikachu's tail. */
+  electric: {
+    tile: tile16((x, y) => { const zig = y % 8 < 4 ? (y % 8) : 8 - (y % 8); return (x + zig * 2) % 8 === 0 ? '3' : (x + zig * 2) % 8 === 1 ? '2' : '1' }),
+    palette: { 1: '#d8b830', 2: '#e8cc48', 3: '#fff8c0' },
+  },
   /** Blue diamonds, like the first box of the games' PC. */
   classic: {
     tile: [

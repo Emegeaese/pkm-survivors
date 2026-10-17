@@ -1,4 +1,5 @@
 import { createRng, pick, seedFrom, weightedPick } from '../engine/rng'
+import { SHOP_TITLES, type ShopTitleId } from '../data/achievements'
 import { stylePrice, type StyleId, type StyleSlot } from '../data/style'
 import { addToBag, type BagItem } from './bag'
 import type { DayKey } from './day'
@@ -82,6 +83,13 @@ export const buyStyle = <S extends StyleSlot>(save: Save, slot: S, id: StyleId<S
   const price = stylePrice(slot, id)
   if (price === null || ownsStyle(save.style, slot, id) || save.wallet < price) return null
   return { ...save, wallet: save.wallet - price, spent: save.spent + price, style: grantStyle(save.style, slot, id) }
+}
+
+/** Buys a title for good and wears it right away. Null when it's owned already or too expensive. */
+export const buyTitle = (save: Save, id: ShopTitleId): Save | null => {
+  const price = SHOP_TITLES[id]
+  if (save.titles.includes(id) || save.wallet < price) return null
+  return { ...save, wallet: save.wallet - price, spent: save.spent + price, titles: [...save.titles, id], title: id }
 }
 
 /** Two counters of the same player: the most recent day wins, and on the same day each item keeps the most bought. */

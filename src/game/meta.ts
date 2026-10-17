@@ -49,6 +49,10 @@ export const UPGRADES = {
   amuletCoin: { name: 'Amulet Coin', maxRank: 5, basePrice: 250, effect: { stat: { greed: 0.1 } } },
   abilityCapsule: { name: 'Ability Capsule', maxRank: 3, basePrice: 500, effect: { charge: 'rerolls' } },
   escapeRope: { name: 'Escape Rope', maxRank: 3, basePrice: 300, effect: { charge: 'skips' } },
+  leftovers: { name: 'Leftovers', maxRank: 3, basePrice: 350, effect: { stat: { regen: 0.15 } } },
+  magnet: { name: 'Magnet', maxRank: 3, basePrice: 250, effect: { stat: { magnet: 12 } } },
+  quickClaw: { name: 'Quick Claw', maxRank: 3, basePrice: 350, effect: { stat: { projectileSpeed: 0.06 } } },
+  lightClay: { name: 'Light Clay', maxRank: 3, basePrice: 400, effect: { stat: { duration: 0.05 } } },
   shinyCharm: { name: 'Shiny Charm', maxRank: 3, basePrice: 6000, growth: 2, effect: { odds: 'shiny' } },
 } as const satisfies Record<string, UpgradeDef>
 

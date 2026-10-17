@@ -29,5 +29,5 @@ export const pokemonPicker = (root: HTMLElement, input: Input, initial: Playable
   )
   const catalogue = (start: PlayableId) => show(() => catalogueSelect(root, input, { pick: onPick }, start))
   regions(initial)
-  return { el: root, dispose: () => { if (disposed) return; disposed = true; current?.dispose(); closeBack?.() } }
+  return { el: root, tick: (time: number) => current?.tick?.(time), dispose: () => { if (disposed) return; disposed = true; current?.dispose(); closeBack?.() } }
 }

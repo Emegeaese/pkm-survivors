@@ -11,6 +11,7 @@ import { PLAYABLE, PLAYABLE_IDS } from './data/hatchlings'
 import { DIFFICULTY_IDS } from './game/difficulty'
 import { ONLINE_STATS } from './firebaseSocial'
 import { styleIds } from './data/style'
+import { TITLE_IDS } from './data/achievements'
 
 export type BoardFilter = { difficulty: Difficulty; period: BoardPeriod; starter: import('./data/hatchlings').PlayableId | null; friends: boolean }
 export type BoardOptions = { mode: RankingMode; difficulty: Difficulty; period: BoardPeriod; teamSize: number }
@@ -165,14 +166,15 @@ export const firebaseProfile = async (handle: string): Promise<PublicProfile | '
     const records: PublicProfile['records'] = {}
     for (const record of best) { const r = record.data() as ScoreEntry | undefined; if (r && validModeResult('solo', r)) records[r.difficulty] = r }
     const online = Object.fromEntries(ONLINE_STATS.map((k) => [k, Number(stats.data()?.[k] ?? 0)])) as NonNullable<PublicProfile['online']>
-    return { handle, name: String(data.name), title: null, online, dex: { seen: Number(stats.data()?.seen ?? 0), caught: Number(stats.data()?.caught ?? 0) }, records, recent, followers: fans.size, following: following.size, followed: ownFollowing.has(handle), ...lookOf(data), friends: Array.isArray(data.friends) ? data.friends.filter((id): id is string => typeof id === 'string') : [], self: uid === accountUserId() }
+    return { handle, name: String(data.name), online, dex: { seen: Number(stats.data()?.seen ?? 0), caught: Number(stats.data()?.caught ?? 0) }, records, recent, followers: fans.size, following: following.size, followed: ownFollowing.has(handle), ...lookOf(data), friends: Array.isArray(data.friends) ? data.friends.filter((id): id is string => typeof id === 'string') : [], self: uid === accountUserId() }
   } catch { return null }
 }
 /** The public look fields of a profile document, keeping only ids this version knows. */
-const lookOf = (data: Record<string, unknown>): Pick<PublicProfile, 'photo' | 'wall' | 'favs'> => {
+const lookOf = (data: Record<string, unknown>): Pick<PublicProfile, 'photo' | 'wall' | 'favs' | 'title'> => {
+  const title = TITLE_IDS.find((id) => id === data.title)
   const photo = PLAYABLE_IDS.find((id) => id === data.photo), wall = styleIds('wallpaper').find((id) => id === data.wall)
   const favs = Array.isArray(data.favs) ? data.favs.flatMap((raw) => PLAYABLE_IDS.find((id) => id === raw) ?? []).slice(0, 3) : []
-  return { ...(photo ? { photo } : {}), ...(wall ? { wall } : {}), ...(favs.length ? { favs } : {}) }
+  return { title: title ?? null, ...(photo ? { photo } : {}), ...(wall ? { wall } : {}), ...(favs.length ? { favs } : {}) }
 }
 const followingHandles = async (uid: string | null) => {
   if (!uid) return new Set<string>()

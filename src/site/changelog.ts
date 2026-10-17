@@ -19,6 +19,20 @@ export type ChangelogEntry = {
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
     date: '2026-10-16',
+    title: { pt: 'Poké Mart renovado, títulos e mais fundos', en: 'New Poké Mart, titles and more backgrounds' },
+    notes: [
+      {
+        pt: 'O Poké Mart ganhou um layout mais claro, com o detalhe do item ao lado da lista, e uma nova aba de Títulos para mostrar no perfil. Há quatro melhorias novas (Leftovers, Magnet, Quick Claw e Light Clay) e quatro fundos novos.',
+        en: 'The Poké Mart has a clearer layout, with the item details beside the list, and a new Titles shelf to show on your profile. There are four new upgrades (Leftovers, Magnet, Quick Claw and Light Clay) and four new backgrounds.',
+      },
+      {
+        pt: 'Mais títulos desbloqueáveis por conquistas, e o título escolhido aparece no perfil. Os iniciais que você já jogou mostram a evolução final nos menus.',
+        en: 'More titles unlock through achievements, and the one you pick shows on your profile. Starters you have played show their final evolution in the menus.',
+      },
+    ],
+  },
+  {
+    date: '2026-10-16',
     title: { pt: 'Perfil renovado, amigos com o mesmo menu do solo e ranking com a equipe', en: 'New profile, friends rooms with the solo menu, and team lineups in the ranking' },
     notes: [
       {

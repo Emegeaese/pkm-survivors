@@ -11,12 +11,13 @@ import { h, later } from './dom'
 import { loadSave, updateSave, writeSave } from './save'
 import type { Screen } from './screens'
 import { inspectPanel } from './starterSelect'
+import { showcaseDex } from './showcase'
 
 export const catalogueSelect = (root: HTMLElement, input: Input, actions: { pick: (id: PlayableId) => void; incubator?: () => void; gacha?: () => void }, initial: PlayableId = 'charmander'): Screen & { selected: () => PlayableId } => {
   const m = featureText()
   let selected = initial, page = 0, stage = 0
   let picking = false
-  const save = loadSave()
+  const save = loadSave(), played = save.achievements.lifetime.starters
   const confirm = () => { if (!picking && ownsPokemon(save, selected)) { picking = true; later(() => actions.pick(selected)) } }
   const query = h('input', { type: 'search', placeholder: m.search, 'aria-label': m.search })
   const region = h('select', { 'aria-label': m.all }, h('option', { value: '0' }, m.all), ...BANNERS.map((b, i) => h('option', { value: i + 1 }, b)))
@@ -51,7 +52,7 @@ export const catalogueSelect = (root: HTMLElement, input: Input, actions: { pick
     grid.replaceChildren(...ids.slice(page * 60, page * 60 + 60).map((id) => h('button', {
       class: `collection-cell ${ownsPokemon(save, id) ? '' : 'locked'} ${selected === id ? 'selected' : ''}`,
       title: PLAYABLE[id].name, onclick: () => { selected = id; stage = 0; redraw(); showDetail() },
-    }, h('img', { src: portraitUrl(PLAYABLE[id].line[0].dex), alt: '', loading: 'lazy' }), h('span', {}, PLAYABLE[id].name), !ownsPokemon(save, id) && '🔒')))
+    }, h('img', { src: portraitUrl(showcaseDex(id, played)), alt: '', loading: 'lazy' }), h('span', {}, PLAYABLE[id].name), !ownsPokemon(save, id) && '🔒')))
   }
   query.oninput = region.onchange = owned.onchange = () => { page = 0; redraw() }
   const difficulty = h('select', { 'aria-label': t().difficulty.names[save.difficulty] }, ...DIFFICULTY_IDS.map((id) => h('option', { value: id, selected: id === save.difficulty }, t().difficulty.names[id])))

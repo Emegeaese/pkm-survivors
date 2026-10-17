@@ -2,6 +2,7 @@ import type { Input } from '../engine/input'
 import { PLAYABLE, PLAYABLE_IDS, playableDex, type PlayableId } from '../data/hatchlings'
 import { DIFFICULTY_IDS } from '../game/difficulty'
 import { pokemonPicker } from './pokemonPicker'
+import { showcaseDex } from './showcase'
 import { difficultyPicker } from './starterSelect'
 import { ownsPokemon, ownsShiny } from '../game/gacha'
 import { createMatch, matchHash, NETWORK_VERSION, REVIVE_SECONDS, selectMember, spectatorTarget, stepMatch, versusRadius, type Match, type MatchMode, type Trainer } from '../game/multiplayer'
@@ -41,16 +42,17 @@ const store = (key: string, value: string) => { try { localStorage.setItem(key, 
 /** The lobby owns its socket, input handlers, HUD and overlays; leaving tears down all of them. */
 export const multiplayerScreen = (root: HTMLElement, input: Input, ctx: CanvasRenderingContext2D, view: { w: number; h: number }, back: () => void): Screen => {
   const m = featureText(), save = loadSave(), params = new URLSearchParams(location.search)
-  const f = firebaseText(), account = accountState()
+  const f = firebaseText()
   const devRoom = import.meta.env.DEV ? params.get('devroom') : null
-  const name = h('input', { value: account.kind === 'signedIn' ? account.name : readStorage('pkm:trainer', 'Trainer'), maxlength: 24, 'aria-label': m.name })
+  // The trainer's name is the account's: it is the one friends and the ranking already know.
+  const name = { get value() { const s = accountState(); return (s.kind === 'signedIn' && s.name ? s.name : readStorage('pkm:trainer', 'Trainer')).slice(0, 24) } }
   const code = h('input', { value: params.get('room')?.slice(0, 6) ?? '', maxlength: 6, placeholder: m.code, 'aria-label': m.code, autocapitalize: 'characters' })
   const owned = PLAYABLE_IDS.filter((id) => ownsPokemon(save, id)).sort((a, b) => PLAYABLE[a].line[0].dex - PLAYABLE[b].line[0].dex)
   const remembered = readStorage('pkm:friend-starter', 'charmander')
   let chosen: PlayableId = owned.find((id) => id === remembered) ?? owned[0] ?? 'charmander'
   const chosenImg = h('img', { alt: '' }), chosenName = h('b')
   const pokemon = h('button', { class: 'btn pokemon-choice', type: 'button', 'aria-label': m.collection, onclick: () => openPicker() }, chosenImg, chosenName)
-  const drawChosen = () => { chosenImg.src = portraitUrl(PLAYABLE[chosen].line[0].dex); chosenName.textContent = PLAYABLE[chosen].name }
+  const drawChosen = () => { chosenImg.src = portraitUrl(showcaseDex(chosen)); chosenName.textContent = PLAYABLE[chosen].name }
   const shiny = h('input', { type: 'checkbox' })
   const difficulty = difficultyPicker(save.difficulty)
   const mode = h('select', { 'aria-label': m.friends }, h('option', { value: 'coop' }, m.coop), h('option', { value: 'versus' }, m.versus), h('option', { value: 'duel' }, m.duel))
@@ -58,8 +60,8 @@ export const multiplayerScreen = (root: HTMLElement, input: Input, ctx: CanvasRe
   mode.onchange = () => difficulty.el.classList.toggle('hidden', mode.value !== 'coop')
   const status = h('p', { role: 'status', 'aria-live': 'polite' }), players = h('div', { class: 'room-players' })
   const actions = h('div', { class: 'buttons' }), joinActions = h('div', { class: 'buttons' })
-  const config = h('div', { class: 'room-config' }, h('label', {}, m.name, name), h('label', {}, m.collection, pokemon), h('label', {}, shiny, m.shiny), h('label', {}, m.friends, mode), difficulty.el, h('label', {}, m.code, code))
-  const panel = h('div', { class: 'feature-panel box room-panel' }, h('h1', {}, m.friends), h('p', {}, m.lobbyInfo), config, status, players, joinActions, actions, h('p', {}, f.firebase))
+  const config = h('div', { class: 'room-config' }, h('label', {}, m.collection, pokemon), h('label', {}, shiny, m.shiny), h('label', {}, m.friends, mode), difficulty.el, h('label', {}, m.code, code))
+  const panel = h('div', { class: 'feature-panel box room-panel' }, h('h1', {}, m.friends), h('p', {}, m.lobbyInfo), config, status, players, joinActions, actions)
   const el = h('div', { class: 'screen feature-screen room-screen' }, panel)
   root.append(el)
   let ws: RoomConnection | null = null, self = '', lobby: Lobby | null = null, match: Match | null = null, hud: Hud | null = null, overlay: Screen | null = null, authScreen: Screen | null = null
@@ -181,7 +183,6 @@ export const multiplayerScreen = (root: HTMLElement, input: Input, ctx: CanvasRe
     if (ws) return
     if (!devRoom && !accountUserId()) { status.textContent = f.loginRequired; return }
     if (!devRoom && kind === 'join' && !/^[A-Fa-f0-9]{6}$/.test(code.value.trim())) { status.textContent = m.unavailable; return }
-    store('pkm:trainer', name.value)
     status.textContent = m.connecting
     joinActions.querySelectorAll('button').forEach((b) => { b.disabled = true })
     try { ws = devRoom ? createDevRoomConnection(devRoom) : createFirebaseRoomConnection() } catch { fail(); return }
@@ -250,6 +251,7 @@ export const multiplayerScreen = (root: HTMLElement, input: Input, ctx: CanvasRe
     if (key === 'Escape' && match.mode === 'coop') command('pause')
   })
   const tick = (time: number) => {
+    picker?.tick?.(time)
     if (!match || ended) return
     if (time - sendAt > 1 / 30) {
       sendAt = time

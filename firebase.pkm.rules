@@ -42,7 +42,8 @@
     match /pkmProfiles/{uid} {
       allow read: if true;
       allow create, update: if pkmOwner(uid)
-        && request.resource.data.keys().hasOnly(['uid', 'name', 'handle', 'updatedAt', 'friends', 'photo', 'wall', 'favs'])
+        && request.resource.data.keys().hasOnly(['uid', 'name', 'handle', 'updatedAt', 'friends', 'photo', 'wall', 'favs', 'title'])
+        && (!('title' in request.resource.data) || (request.resource.data.title is string && request.resource.data.title.size() <= 24))
         && (!('photo' in request.resource.data) || (request.resource.data.photo is string && request.resource.data.photo.size() <= 40))
         && (!('wall' in request.resource.data) || (request.resource.data.wall is string && request.resource.data.wall.size() <= 20))
         && (!('favs' in request.resource.data) || (request.resource.data.favs is list && request.resource.data.favs.size() <= 3))

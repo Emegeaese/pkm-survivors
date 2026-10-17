@@ -20,6 +20,7 @@ import { cryUrl, drawPokemon, loadAll, loadedSprites, loadSpecies, portraitUrl }
 import { t } from '../i18n'
 import { h, later, rich } from './dom'
 import { loadSave, updateSave } from './save'
+import { showcaseDex } from './showcase'
 import { STAT_BARS, statRatio } from './statBars'
 import { hint, typeBadge, type Screen } from './screens'
 
@@ -293,6 +294,8 @@ export const starterSelect = (root: HTMLElement, input: Input, actions: SelectAc
   const m = t()
   const save = loadSave()
   const unlocked = (id: PlayableId) => ownsPokemon(save, id)
+  /** Starters the player has played show their final evolution on the cards. */
+  const played = save.achievements.lifetime.starters
   /** A shiny hatch is shiny for good; a shiny rolled once can be picked (`shinyStarters`). */
   const hatchedShiny = (id: PlayableId) => isHatchling(id) && save.hatched[id]?.shiny === true
   let picks: ShinyStarters = save.shinyStarters
@@ -393,10 +396,10 @@ export const starterSelect = (root: HTMLElement, input: Input, actions: SelectAc
       cardNames[slot]!.textContent = s.name
       cardTypes[slot]!.replaceChildren(...s.line[0].types.map(typeBadge))
       cardShiny[slot]!.classList.toggle('hidden', !shinyOf(id))
-      if (shinyOf(id)) void loadSpecies(s.line[0].dex, true).catch(() => {})
+      if (shinyOf(id)) void loadSpecies(showcaseDex(id, played), true).catch(() => {})
     })
     // Menu sprites load on demand: the visible trio first, the rest in the background (see main.ts).
-    void loadAll(g.ids.map((id) => PLAYABLE[id].line[0].dex)).catch(() => {})
+    void loadAll(g.ids.map((id) => showcaseDex(id, played))).catch(() => {})
   }
 
   const renderInspect = () => {
@@ -518,7 +521,7 @@ export const starterSelect = (root: HTMLElement, input: Input, actions: SelectAc
       HATCHLING_IDS.forEach((id, slot) =>
         draw(cellCanvases[slot]!, PLAYABLE[id].line[0].dex, t, { walking: slot === cursor.slot, shiny: shinyOf(id), locked: !unlocked(id) }),
       )
-    else g.ids.forEach((id, slot) => draw(cardCanvases[slot]!, PLAYABLE[id].line[0].dex, t, { walking: slot === cursor.slot, shiny: shinyOf(id) }))
+    else g.ids.forEach((id, slot) => draw(cardCanvases[slot]!, showcaseDex(id, played), t, { walking: slot === cursor.slot, shiny: shinyOf(id) }))
     const id = current()
     draw(inspectSprite, PLAYABLE[id].line[stage]!.dex, t, { walking: true, shiny: shinyOf(id), locked: !unlocked(id) })
   }

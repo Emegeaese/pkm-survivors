@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { bagCount } from './bag'
 import { EGGS } from './eggs'
-import { buyFromCounter, buyStyle, COUNTER, counterOf, counterPrice, mergeCounter, parseCounter, stockLeft, type Counter } from './mart'
-import { EMPTY_SAVE, type Save } from './meta'
+import { SHOP_TITLES } from '../data/achievements'
+import { buyFromCounter, buyStyle, buyTitle, COUNTER, counterOf, counterPrice, mergeCounter, parseCounter, stockLeft, type Counter } from './mart'
+import { EMPTY_SAVE, parseSaveData, type Save } from './meta'
 import { equipStyle, mergeStyle, NO_STYLES, ownsStyle, parseStyle } from './style'
 
 const rich = (wallet: number): Save => ({ ...EMPTY_SAVE, wallet })
@@ -70,5 +71,21 @@ describe('styles', () => {
     const b = { ...NO_STYLES, owned: { ...NO_STYLES.owned, wallpaper: ['snow' as const] } }
     expect(mergeStyle(a, b)).toEqual({ owned: { frame: ['poke'], background: [], wallpaper: ['snow'] }, equipped: NO_STYLES.equipped })
     expect(mergeStyle(b, a).equipped.frame).toBe('poke')
+  })
+})
+
+describe('the titles shelf', () => {
+  it('sells a title once, wears it and spends the wallet and the lifetime total', () => {
+    const bought = buyTitle(rich(1000), 'breeder')
+    expect(bought).toMatchObject({ wallet: 0, spent: 1000, titles: ['breeder'], title: 'breeder' })
+    expect(buyTitle(bought!, 'breeder')).toBeNull()
+  })
+
+  it('refuses a title the wallet cannot pay', () => {
+    expect(buyTitle(rich(SHOP_TITLES.ace - 1), 'ace')).toBeNull()
+  })
+
+  it('keeps bought titles through the save parser, like gift titles', () => {
+    expect(parseSaveData({ version: 1, titles: ['rookie', 'nope'], title: 'rookie' }).titles).toEqual(['rookie'])
   })
 })
