@@ -288,6 +288,8 @@ export const multiplayerScreen = (root: HTMLElement, input: Input, ctx: CanvasRe
     }
   }
   const off = input.onKey((key) => {
+    // Before a match, Esc leaves the room screen (unless another screen is open over it).
+    if (!match && !picker && !authScreen && (key === 'Escape' || key === 'Backspace')) return leave()
     if (!match || ended) return
     const fallen = match.members.find((p) => p.trainer.id === self)!.state.player.hp <= 0
     if (fallen && (key === 'KeyQ' || key === 'KeyE')) { cycleWatch(key === 'KeyQ' ? -1 : 1); return }

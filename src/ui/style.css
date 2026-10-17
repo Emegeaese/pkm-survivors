@@ -3613,10 +3613,10 @@ button {
   .lobby-tile.mart {
     grid-column: 3;
   }
-  .lobby-tile.ranking {
+  .lobby-tile.gacha {
     grid-column: 4;
   }
-  .lobby-tile.ideas {
+  .lobby-tile.ranking {
     grid-column: 5;
   }
 }
@@ -3689,10 +3689,10 @@ button {
   .lobby-tile.mart {
     grid-area: d3;
   }
-  .lobby-tile.ranking {
+  .lobby-tile.gacha {
     grid-area: d4;
   }
-  .lobby-tile.ideas {
+  .lobby-tile.ranking {
     grid-area: d5;
   }
   .lobby-play {
