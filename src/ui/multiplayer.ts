@@ -279,7 +279,7 @@ export const multiplayerScreen = (root: HTMLElement, input: Input, ctx: CanvasRe
           // Simulation events are presentation-only and must never accumulate.
           if (match.game.events.some((e) => e.kind === 'hit')) playSfx('hit')
           // The world's news (a new area, a shiny) reaches everyone, as in a solo run.
-          for (const e of match.game.events) if (e.kind === 'biome' || e.kind === 'shiny') news.push(e)
+          if (match.mode === 'coop') for (const e of match.game.events) if (e.kind === 'biome' || e.kind === 'shiny') news.push(e)
           match.game.events.length = 0
           if (sequence % 90 === 0) send({ type: 'ack', tick: sequence, hash: matchHash(match) })
           if (match.result) {

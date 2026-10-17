@@ -280,6 +280,7 @@ let pressedStart = false
  * coming back from the starter select goes straight to the lobby. `focus` is what the lobby highlights (JOGAR by default).
  */
 const showTitle = (opts: { intro?: boolean; focus?: LobbyFocus } = {}) => {
+  startToken++
   endRun()
   setScreen(
     titleScreen(ui, input, {
@@ -317,6 +318,7 @@ const showPlayGate = () =>
 
 /** The partner select; its top bar leads back to the title, to the Poké Mart (the wallet) and to Settings, which come back to it on the same Pokémon. */
 const showMenu = (initial: PlayableId = loadSave().partner) => {
+  startToken++
   endRun()
   const select = starterSelect(ui, input, {
     pick: (id) => setTimeout(() => void startRun(id), 250),
@@ -340,6 +342,7 @@ const runCompanion = (at: Vec): CompanionView | null => {
 
 /** JOGAR: solo, a room with friends, the invitations or a room code. */
 const showModes = () => {
+  startToken++
   endRun()
   setScreen(
     playModesScreen(ui, input, {
@@ -553,7 +556,11 @@ const openingDex = (plan: RunPlan) => rosterSchedule(plan.roster).flatMap((s) =>
  * `EXTRAS` stream in the background in the order the run needs them, then the
  * next run's opening.
  */
+/** The newest start wins: a second press on Play again while the sprites load must not build a second run. */
+let startToken = 0
+
 const startRun = async (starter: PlayableId, daily: ChallengeRun | null = null) => {
+  const mine = ++startToken
   setScreen(null)
   endRun()
   const c = daily?.challenge ?? null
@@ -569,6 +576,7 @@ const startRun = async (starter: PlayableId, daily: ChallengeRun | null = null) 
   const plan = c ? { seed: c.seed, outbreak: c.outbreak, roster: runRoster(c.seed, c.outbreak) } : upcoming.outbreak === outbreakToday() ? upcoming : planRun()
   if (!c) upcoming = planRun()
   await loadAll([...playableDex(starter), ...openingDex(plan)])
+  if (mine !== startToken) return loading.remove()
   // The outbreak's shiny can show up in the first minute.
   void preloadShinies([ENEMIES[plan.outbreak].dex])
   // Armed bag items are used up as the run starts (the challenge leaves them in the Bag).
@@ -594,6 +602,7 @@ const startRun = async (starter: PlayableId, daily: ChallengeRun | null = null) 
   if (game.player.luckyShiny) updateSave((s) => ({ ...s, gacha: { ...s.gacha, nativeShiny: { ...s.gacha.nativeShiny, [starter]: true } }, shinyStarters: unlockShinyStarter(s.shinyStarters, starter) }))
   // A shiny run must not start in normal colors.
   if (game.player.shiny) await preloadShinies(playableDex(starter))
+  if (mine !== startToken) return loading.remove()
   // Alternate forms (Aegislash's Blade Forme) stream in behind; until then the normal form stands in.
   void preloadForms(playableDex(starter), game.player.shiny)
   loading.remove()
