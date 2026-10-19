@@ -18,6 +18,142 @@ export type ChangelogEntry = {
  */
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    date: '2026-10-18',
+    pr: 68,
+    title: { pt: 'Ficha de status na pausa', en: 'Stat sheet on the pause screen', es: 'Ficha de estadísticas en la pausa' },
+    notes: [
+      {
+        pt: 'A pausa agora mostra a ficha completa da partida: vida máxima, dano, recarga, área, velocidade, regeneração, alcance de coleta e os bônus de tipo, status e dinheiro assim que você os tiver, cada um com quantas cartas de upgrade você já pegou para ele.',
+        en: "The pause screen now shows the run's full stat sheet: max HP, damage, cooldown, area, speed, regen, pickup range and the type, status and money bonuses once you have them, each with how many upgrade cards you've taken for it.",
+        es: 'La pausa ahora muestra la ficha completa de la partida: vida máxima, daño, recarga, área, velocidad, regeneración, alcance de recogida y los bonos de tipo, estado y dinero en cuanto los tengas, cada uno con cuántas cartas de mejora ya tomaste para él.',
+      },
+      {
+        pt: 'Golpes e itens aparecem em listas separadas com o nível de cada um (MAX quando chegam ao topo), e no celular a ficha rola enquanto os botões ficam sempre à mão.',
+        en: 'Moves and held items get their own lists with each level (MAX once they top out), and on phones the sheet scrolls while the buttons stay within reach.',
+        es: 'Los movimientos y los objetos tienen listas propias con el nivel de cada uno (MAX cuando llegan al tope), y en el celular la ficha se desplaza mientras los botones quedan siempre a mano.',
+      },
+    ],
+  },
+  {
+    date: '2026-10-18',
+    pr: 70,
+    title: { pt: 'Ficha do golpe', en: 'Move cards', es: 'Ficha del movimiento' },
+    notes: [
+      {
+        pt: 'Passe o mouse sobre um golpe na barra do topo, na pausa ou nas cartas de subida de nível (no celular, segure o dedo) para ver a ficha dele: dano e recarga já com os seus itens e bônus, projéteis, área, duração, perfuração e chance de status quando o golpe usa, o nível e do que ele precisa para evoluir.',
+        en: 'Hover a move in the top bar, the pause menu or the level-up cards (on phones, hold your finger on it) to see its card: damage and cooldown with your items and bonuses applied, projectiles, area, duration, pierce and status chance when the move uses them, its level and what it needs to evolve.',
+        es: 'Pasa el ratón por un movimiento en la barra superior, en la pausa o en las cartas de subida de nivel (en el celular, mantén el dedo encima) para ver su ficha: daño y recarga con tus objetos y bonificaciones, proyectiles, área, duración, perforación y probabilidad de estado cuando el movimiento los usa, su nivel y lo que necesita para evolucionar.',
+      },
+      {
+        pt: 'Nas cartas de subida de nível, a ficha mostra o antes e o depois de cada melhoria. Segurar a carta só abre a ficha: ela nunca escolhe a carta sem querer.',
+        en: 'On level-up cards, the card shows each upgrade before and after. Holding a card only opens its details: it never picks the card by accident.',
+        es: 'En las cartas de subida de nivel, la ficha muestra el antes y el después de cada mejora. Mantener pulsada la carta solo abre la ficha: nunca la elige sin querer.',
+      },
+    ],
+  },
+  {
+    date: '2026-10-18',
+    pr: 118,
+    title: { pt: 'Mega Evolução sem travar o jogo', en: 'Mega Evolution no longer freezes the game', es: 'La Megaevolución ya no congela el juego' },
+    notes: [
+      {
+        pt: 'Mega Evoluir enquanto o especial ainda carregava travava o jogo e a partida se perdia. Acontecia com os Megas cujo especial é uma sequência de investidas: Raichu X, Feraligatr, Scizor, Blaziken, Gallade, Banette e Greninja. Agora a carga é cancelada e o especial do Mega já vem pronto. Obrigado ao @DashtheBard pelo aviso!',
+        en: 'Mega Evolving while your special was still charging froze the game and the run was lost. It happened with the Megas whose special is a chain of dashes: Raichu X, Feraligatr, Scizor, Blaziken, Gallade, Banette and Greninja. Now the charge is canceled and the Mega’s special comes ready. Thanks to @DashtheBard for the report!',
+        es: 'Megaevolucionar mientras el especial aún se cargaba congelaba el juego y se perdía la partida. Pasaba con los Megas cuyo especial es una cadena de embestidas: Raichu X, Feraligatr, Scizor, Blaziken, Gallade, Banette y Greninja. Ahora la carga se cancela y el especial del Mega ya viene listo. ¡Gracias a @DashtheBard por el aviso!',
+      },
+    ],
+  },
+  {
+    date: '2026-10-18',
+    pr: 115,
+    title: { pt: 'Golpes, golpes e mais golpes', en: 'Moves, moves and more moves', es: 'Movimientos, movimientos y más movimientos' },
+    notes: [
+      {
+        pt: 'A ideia mais votada do mural de ideias (71 votos) dizia que os golpes eram poucos e as partidas, todas iguais. Agora são 196 golpes, e cada família tem a sua assinatura: Brave Bird, Weather Ball, Spore, Fiery Dance, Gigaton Hammer, Moonblast e dezenas de outras, cada uma com um jeito próprio de jogar.',
+        en: 'The top idea on the ideas board (71 votes) said moves were too few and every run felt the same. Now there are 196 moves, and every family has its own signature: Brave Bird, Weather Ball, Spore, Fiery Dance, Gigaton Hammer, Moonblast and dozens more, each one playing its own way.',
+        es: 'La idea más votada del muro de ideas (71 votos) decía que había pocos movimientos y que todas las partidas eran iguales. Ahora son 196 movimientos, y cada familia tiene su firma: Brave Bird, Weather Ball, Spore, Fiery Dance, Gigaton Hammer, Moonblast y decenas más, cada una con su propia forma de jugar.',
+      },
+      {
+        pt: 'Os golpes que um Pokémon aprende crescem a cada evolução, e a lista final tem mais golpes do que os 6 espaços: toda partida deixa alguns de fora. A partida começa com um draft do 2º golpe.',
+        en: 'The moves a Pokémon learns grow with each evolution, and the final list has more moves than the 6 slots: every run leaves some out. A run starts with a draft for your 2nd move.',
+        es: 'Los movimientos que aprende un Pokémon crecen con cada evolución, y la lista final tiene más movimientos que los 6 espacios: cada partida deja algunos fuera. La partida empieza con un draft de tu 2.º movimiento.',
+      },
+      {
+        pt: 'Todo golpe base se divide em dois caminhos no Nv 4 e no Nv 7, que mudam como ele joga (ricochetear, explodir, deixar rastro, ecoar…). Cards raros sobem 2 níveis, cards shiny são uma escolha grátis, e o botão Esquecer tira da partida o que você não quer ver.',
+        en: 'Every base move splits into two paths at Lv 4 and Lv 7 that change how it plays (bouncing, exploding, leaving a trail, echoing…). Rare cards give 2 levels, shiny cards are a free pick, and the Forget button takes what you don’t want out of the run.',
+        es: 'Todo movimiento base se divide en dos caminos en el Nv. 4 y en el Nv. 7, que cambian cómo juega (rebotar, explotar, dejar un rastro, hacer eco…). Las cartas raras suben 2 niveles, las shiny son una elección gratis, y el botón Olvidar saca de la partida lo que no quieres ver.',
+      },
+      {
+        pt: '91 Habilidades: na primeira evolução você escolhe 1 de 3, a Oculta incluída. Eevee escolhe entre as 8 eeveelutions, e Kirlia, Snorunt, Poliwhirl, Scyther e Charcadet também ramificam. Chegou a Mega Gallade: 38 Megas.',
+        en: '91 Abilities: at the first evolution you pick 1 of 3, the Hidden one included. Eevee picks among its 8 eeveelutions, and Kirlia, Snorunt, Poliwhirl, Scyther and Charcadet branch too. Mega Gallade is here: 38 Megas.',
+        es: '91 Habilidades: en la primera evolución eliges 1 de 3, la Oculta incluida. Eevee elige entre sus 8 eeveeluciones, y Kirlia, Snorunt, Poliwhirl, Scyther y Charcadet también se ramifican. Llegó Mega Gallade: 38 Megas.',
+      },
+      {
+        pt: 'Agora todo golpe comum evolui, com 7 itens de tipo novos (Black Belt, Metal Coat, Spell Tag, Black Glasses, Twisted Spoon, Soft Sand e Fairy Feather), e os golpes evoluídos mudam de forma e seguem subindo até o Nv 5.',
+        en: 'Every regular move now evolves, with 7 new type items (Black Belt, Metal Coat, Spell Tag, Black Glasses, Twisted Spoon, Soft Sand and Fairy Feather), and evolved moves change shape and keep growing up to Lv 5.',
+        es: 'Ahora todo movimiento común evoluciona, con 7 objetos de tipo nuevos (Black Belt, Metal Coat, Spell Tag, Black Glasses, Twisted Spoon, Soft Sand y Fairy Feather), y los movimientos evolucionados cambian de forma y siguen subiendo hasta el Nv. 5.',
+      },
+      {
+        pt: 'Golpes de fora do repertório: chefes derrotados deixam um TM (Rock Slide, Ice Beam, Psystrike…), o Tutor de Golpes arma a tenda no mapa, e vencer uma fenda oferece o golpe lendário do próprio lendário (Sacred Fire, Origin Pulse, Roar of Time…). Com os espaços cheios: "1, 2 e… Puf!".',
+        en: 'Moves from outside the learnset: beaten bosses drop a TM (Rock Slide, Ice Beam, Psystrike…), the Move Tutor pitches a tent on the map, and clearing a rift offers the legendary’s own move (Sacred Fire, Origin Pulse, Roar of Time…). With every slot full: "1, 2 and… Poof!".',
+        es: 'Movimientos de fuera de la lista: los jefes derrotados dejan una MT (Rock Slide, Ice Beam, Psystrike…), el Tutor de Movimientos arma su carpa en el mapa, y ganar una grieta ofrece el movimiento legendario del propio legendario (Sacred Fire, Origin Pulse, Roar of Time…). Con los espacios llenos: "1, 2 y… ¡Puf!".',
+      },
+      {
+        pt: 'Golpes em dupla: dois golpes no máximo com os tipos certos se unem em Fire Pledge, Water Pledge, Grass Pledge, Fusion Flare, Fusion Bolt, Ion Deluge, Freeze-Dry ou Nightmare (um por partida). E baús trancados podem esconder um item amaldiçoado: Life Orb, Choice Band, Flame Orb ou Iron Ball, muito fortes, com um preço.',
+        en: 'Duo moves: two maxed moves of the right types fuse into Fire Pledge, Water Pledge, Grass Pledge, Fusion Flare, Fusion Bolt, Ion Deluge, Freeze-Dry or Nightmare (one per run). And locked chests may hide a cursed item: Life Orb, Choice Band, Flame Orb or Iron Ball, very strong, at a price.',
+        es: 'Movimientos en dúo: dos movimientos al máximo de los tipos correctos se unen en Fire Pledge, Water Pledge, Grass Pledge, Fusion Flare, Fusion Bolt, Ion Deluge, Freeze-Dry o Nightmare (uno por partida). Y los cofres cerrados pueden esconder un objeto maldito: Life Orb, Choice Band, Flame Orb o Iron Ball, muy fuertes, con un precio.',
+      },
+    ],
+  },
+  {
+    date: '2026-10-17',
+    pr: 98,
+    title: { pt: 'Shinx chegou aos ovos', en: 'Shinx hatches from eggs', es: 'Shinx sale de los huevos' },
+    notes: [
+      {
+        pt: 'Shinx › Luxio › Luxray é a nova família do Ovo comum: um lince elétrico rápido que acerta em cadeia com Shock Wave, e o olhar do Luxray faz os choques paralisarem com mais frequência. São 55 famílias nos ovos e 82 Pokémon jogáveis.',
+        en: 'Shinx › Luxio › Luxray is the new Common Egg family: a quick electric lynx that chains Shock Wave from foe to foe, and Luxray’s glare makes its shocks paralyze more often. That makes 55 egg families and 82 playable Pokémon.',
+        es: 'Shinx › Luxio › Luxray es la nueva familia del Huevo común: un lince eléctrico rápido que encadena Shock Wave de enemigo en enemigo, y la mirada de Luxray hace que sus descargas paralicen más seguido. Son 55 familias en los huevos y 82 Pokémon jugables.',
+      },
+    ],
+  },
+  {
+    date: '2026-10-17',
+    pr: 96,
+    title: { pt: 'Roggenrola chegou aos ovos', en: 'Roggenrola hatches from eggs', es: 'Roggenrola sale de los huevos' },
+    notes: [
+      {
+        pt: 'Roggenrola › Boldore › Gigalith é a nova família do Ovo comum, ao lado do Geodude: uma pedra de couraça grossa que derruba Rock Tomb nos inimigos, e os cristais do Gigalith fazem cada golpe pegar uma área maior. São 54 famílias nos ovos e 81 Pokémon jogáveis. Pedido do @RedmanRubels no X!',
+        en: 'Roggenrola › Boldore › Gigalith is the new Common Egg family, alongside Geodude: a thick-armored rock that drops Rock Tomb on foes, and Gigalith’s crystals make every hit cover a wider area. That makes 54 egg families and 81 playable Pokémon. Requested by @RedmanRubels on X!',
+        es: 'Roggenrola › Boldore › Gigalith es la nueva familia del Huevo común, junto a Geodude: una roca de coraza gruesa que deja caer Rock Tomb sobre los enemigos, y los cristales de Gigalith hacen que cada golpe cubra más área. Son 54 familias en los huevos y 81 Pokémon jugables. ¡Pedido de @RedmanRubels en X!',
+      },
+    ],
+  },
+  {
+    date: '2026-10-17',
+    pr: 94,
+    title: { pt: 'Cair numa fenda não acaba a partida', en: 'Falling in a rift no longer ends the run', es: 'Caer en una grieta ya no termina la partida' },
+    notes: [
+      {
+        pt: 'Se o seu HP chegar a zero na arena de uma fenda lendária, você não perde mais a partida: o seu Pokémon desmaia, a fenda o puxa de volta e você reaparece no mapa com 30% do HP, sem a recompensa da fenda. O Revive fica guardado para depois. Ideia do @holyfield no mural de ideias!',
+        en: 'If your HP hits zero in a legendary rift’s arena, the run is no longer over: your Pokémon faints, the rift pulls it back and you land on the map with 30% HP, without the rift’s reward. Your Revive stays in the Bag for later. An idea from @holyfield on the ideas board!',
+        es: 'Si tu HP llega a cero en la arena de una grieta legendaria, ya no pierdes la partida: tu Pokémon se debilita, la grieta lo jala de vuelta y reapareces en el mapa con 30% de HP, sin la recompensa de la grieta. Tu Revive queda guardado para después. ¡Idea de @holyfield en el muro de ideas!',
+      },
+    ],
+  },
+  {
+    date: '2026-10-17',
+    pr: 93,
+    title: { pt: 'Hall da Fama sem pedestais vazios', en: 'No more empty pedestals in the Hall of Fame', es: 'Salón de la Fama sin pedestales vacíos' },
+    notes: [
+      {
+        pt: 'Aberto pelo Cartão de Treinador, o Hall da Fama deixava os pedestais das Lendas vazios. Agora os Pokémon sempre aparecem, e enquanto carregam uma Poké Ball balança no lugar deles. Se um não carregar, a Poké Ball fica lá em vez de um espaço em branco.',
+        en: 'Opened from the Trainer Card, the Hall of Fame left the Legends’ pedestals empty. Now the Pokémon always show up, and a Poké Ball wobbles in their place while they load. If one doesn’t load, the Poké Ball stays instead of a blank space.',
+        es: 'Abierto desde la Tarjeta de Entrenador, el Salón de la Fama dejaba vacíos los pedestales de las Leyendas. Ahora los Pokémon siempre aparecen, y mientras cargan una Poké Ball se balancea en su lugar. Si uno no carga, la Poké Ball se queda en vez de un espacio en blanco.',
+      },
+    ],
+  },
+  {
     date: '2026-10-17',
     pr: 91,
     title: { pt: 'Mural de ideias', en: 'Ideas board', es: 'Muro de ideas' },

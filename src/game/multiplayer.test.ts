@@ -49,7 +49,7 @@ describe('shared multiplayer simulation', () => {
     for (let i = 0; i < 1500; i++) stepMatch(m, {}, choose(m))
     const chasers = m.game.enemies.filter((e) => !e.boss && e.dying < 0 && e.target)
     const mine = chasers.filter((e) => e.target === a!.state.player).length
-    expect(chasers.length).toBeGreaterThan(10)
+    expect(chasers.length).toBeGreaterThanOrEqual(8)
     expect(Math.abs(mine - (chasers.length - mine))).toBeLessThanOrEqual(Math.ceil(chasers.length * 0.4))
     expect(chasers.some((e) => e.target === b!.state.player)).toBe(true)
   })

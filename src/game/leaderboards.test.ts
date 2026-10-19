@@ -13,7 +13,7 @@ describe('Firebase ranking partitions', () => {
     expect(teamEntryId(['b', 'a', 'b'])).toBe(teamEntryId(['a', 'b']))
   })
   it('allows versus victories before the solo boss, with the same bounds', () => {
-    const result = { starter: 'charmander' as const, stage: 0, difficulty: 'normal' as const, outcome: 'victory' as const, time: 5, level: 1, kills: 0, version: 'test' }
+    const result = { starter: 'charmander' as const, stage: 0, difficulty: 'normal' as const, outcome: 'victory' as const, time: 5, level: 1, kills: 0, version: 'test', branch: null }
     expect(validModeResult('versus', result)).toBe(true)
     expect(validModeResult('solo', result)).toBe(false)
     expect(validModeResult('versus', { ...result, time: -1 })).toBe(false)

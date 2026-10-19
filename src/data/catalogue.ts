@@ -22,7 +22,7 @@ export const catalogueOf = (families: Record<string, PlayableDef>): Record<Catal
     const signature = SIGNATURE[p.types[0] ?? 'normal']
     const learnset = [...new Set([signature, ...p.types.map((t) => SIGNATURE[t]), 'swift', 'quickAttack', 'rockTomb'] as MoveId[])]
     return [`dex${p.dex}`, {
-      name: p.name, color: TYPE_COLORS[p.types[0] ?? 'normal'], stats: {}, signature, learnset,
+      name: p.name, color: TYPE_COLORS[p.types[0] ?? 'normal'], stats: {}, signature, learnset: [learnset, []],
       line: [{ dex: p.dex, name: p.name, types: p.types, bonus: {} }],
     } satisfies PlayableDef]
   })) as unknown as Record<CatalogueId, PlayableDef>

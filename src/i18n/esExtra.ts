@@ -1,8 +1,9 @@
 import { onlineGoals, onlineNames } from './online'
+import type { DeepPartial } from './deepMerge'
 import type { Messages } from './pt'
 
 const typeBoost = (type: string) => `+10% de daño a los movimientos de tipo ${type}.`
-export const esExtra: Pick<Messages, 'items' | 'upgrades' | 'consumables' | 'blurbs' | 'specials' | 'traits' | 'mega' | 'missions' | 'achievements'> = {
+export const esExtra: DeepPartial<Pick<Messages, 'items' | 'upgrades' | 'consumables' | 'blurbs' | 'specials' | 'traits' | 'mega' | 'missions' | 'achievements'>> = {
   items: {
     muscleBand: '+10% de daño a todos los movimientos.', quickClaw: 'Recarga de movimientos un 8% más rápida.', wideLens: '+10% de área de los movimientos.', lightClay: 'Los efectos duran un 12% más.', loadedDice: '+1 proyectil a los movimientos de varios impactos.', leftovers: 'Recupera 0,3 PS por segundo.', choiceScarf: '+8% de velocidad de movimiento.', luckyEgg: '+10% de experiencia obtenida.', dowsingMachine: 'Atrae caramelos de experiencia desde más lejos.', kingsRock: '+6% de probabilidad de causar quemaduras, veneno o parálisis.', toxicOrb: 'Las quemaduras y el veneno hacen un 20% más de daño.', assaultVest: '+20 PS máximos y +1 de defensa.', metronome: 'Al terminar un salto o una embestida, y al usar otros especiales, lanza uno de tus movimientos desde allí. Dos al nivel máximo; en una cadena, el segundo solo sale en el último salto.', powerHerb: 'Cada rival derrotado por el especial, o durante una cadena, reduce 0,25 s su recarga.', charcoal: typeBoost('Fuego'), mysticWater: typeBoost('Agua'), miracleSeed: typeBoost('Planta'), silkScarf: typeBoost('Normal'), magnet: typeBoost('Eléctrico'), poisonBarb: typeBoost('Veneno'), sharpBeak: typeBoost('Volador'), neverMeltIce: typeBoost('Hielo'), hardStone: typeBoost('Roca'), silverPowder: typeBoost('Bicho'), dragonFang: typeBoost('Dragón'),
   },

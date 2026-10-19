@@ -32,7 +32,7 @@ import * as dm from '../engine/dmath'
 export const NETWORK_VERSION = 2
 export type MatchMode = 'coop' | 'versus'
 export type Trainer = { id: string; name: string; starter: PlayableId; shiny: boolean }
-const PERSONAL = ['starter', 'player', 'special', 'mega', 'attacks', 'buffs', 'ranks', 'rerolls', 'skips', 'pendingLevelUps', 'offers', 'evolution', 'revives', 'phase', 'damageByMove', 'trainerId'] as const satisfies readonly (keyof Game)[]
+const PERSONAL = ['starter', 'player', 'special', 'mega', 'attacks', 'buffs', 'ranks', 'rerolls', 'skips', 'pendingLevelUps', 'offers', 'evolution', 'revives', 'phase', 'damageByMove', 'trainerId', 'banishes', 'banished', 'freshMoves', 'branch', 'ability', 'tm', 'curses'] as const satisfies readonly (keyof Game)[]
 type Personal = Pick<Game, (typeof PERSONAL)[number]>
 export type Member = { trainer: Trainer; state: Personal; revive: number; revivals: number; connected: boolean }
 export const REVIVE_SECONDS = 5

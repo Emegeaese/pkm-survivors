@@ -1,13 +1,11 @@
 import { deepMerge, type DeepPartial } from './deepMerge'
 import { esExtra } from './esExtra'
-import { esMoves } from './esMoves'
 import { esUpstream } from './esUpstream'
 import type { Messages } from './pt'
 
 /** The fork's Spanish: it wins over the upstream one where both have a key. */
 const esFork: DeepPartial<Messages> = {
   ...esExtra,
-  moves: esMoves,
   loading: 'Cargando…', level: (n) => `Nv ${n}`, levelShort: (n) => `Nv${n}`, max: 'MÁX', new: '¡NUEVO!', language: 'Idioma', spaceKey: 'ESPACIO', 
   controls: {
     open: 'Teclado y control',
